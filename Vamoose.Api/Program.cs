@@ -82,12 +82,6 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 
-if (!app.Environment.IsEnvironment("Testing"))
-{
-    using var scope = app.Services.CreateScope();
-    scope.ServiceProvider.GetRequiredService<VamooseDbContext>().Database.Migrate();
-}
-
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
