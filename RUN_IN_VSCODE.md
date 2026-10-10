@@ -61,7 +61,7 @@ cd Vamoose.Api
 dotnet run
 ```
 
-On first start in Development, the API creates or updates the database automatically. **To debug instead:** open **Run and Debug** (`Ctrl+Shift+D`), choose **C#: Vamoose.Api**, and press `F5`.
+On first start in Development, the API creates or updates the database automatically and seeds a demo trip ("Demo: Lisbon long weekend"). **To debug instead:** open **Run and Debug** (`Ctrl+Shift+D`), choose **C#: Vamoose.Api**, and press `F5`.
 
 ## 4. Start the web app (terminal 3)
 
@@ -70,9 +70,11 @@ cd Vamoose.Web
 npx ng serve
 ```
 
-Open http://localhost:4200 and log in with any email address. The dev server forwards `/api` and `/hubs` (live notifications) to the API (see `Vamoose.Web/proxy.conf.json`).
+Open http://localhost:4200. There is no login: type where you want to go, then answer "Who are you?" and "Who all is going?". The dev server forwards `/api` and `/hubs` (live notifications) to the API (see `Vamoose.Web/proxy.conf.json`).
 
-To try the group flow, use a second browser profile or a private window and log in with another email. Add that email to your trip, then **Finalize & send**.
+Everyone gets into a trip with their own **magic link**. No email is actually sent in development; open http://localhost:4200/dev/outbox to see the emails the app would have sent, including the demo organizer's link. To try the group flow, **Finalize & send** your trip, then open a traveler's link from the outbox in a private window.
+
+**Switching to mock mode during a demo:** create an empty file named `.mock` in `Vamoose.Agents`. The running agent service switches to mock mode immediately; delete the file to switch back.
 
 ## Database
 
@@ -85,9 +87,17 @@ dotnet user-secrets set "ConnectionStrings:Vamoose" "Server=<host>,1433;Database
 
 ## Tests
 
+Agent service (live Bedrock tests are skipped unless `VAMOOSE_LIVE_TESTS=1`):
+
 ```bash
 cd Vamoose.Agents
 .venv/Scripts/python -m pytest
+```
+
+API (uses an in-memory database and a fake agent, so no SQL Server or AWS needed):
+
+```bash
+dotnet test Vamoose.Api.Tests
 ```
 
 ## Troubleshooting

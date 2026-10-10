@@ -47,6 +47,7 @@ export class ChatPanel {
   protected readonly sending = signal(false);
   protected readonly pending = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
+  protected readonly failed = signal<string | null>(null);
 
   protected get prompts(): string[] {
     return this.canEdit() ? PLANNING_PROMPTS : TRAVELER_PROMPTS;
@@ -81,6 +82,14 @@ export class ChatPanel {
     void this.send();
   }
 
+  protected retry(): void {
+    const text = this.failed();
+    if (text) {
+      this.draft.set(text);
+      void this.send();
+    }
+  }
+
   protected onKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -96,6 +105,7 @@ export class ChatPanel {
     this.sending.set(true);
     this.pending.set(text);
     this.error.set(null);
+    this.failed.set(null);
     this.draft.set('');
     try {
       const response = await this._trips.sendMessage(this.tripId(), text);
@@ -104,7 +114,7 @@ export class ChatPanel {
         this.planUpdated.emit();
       }
     } catch (e) {
-      this.draft.set(text);
+      this.failed.set(text);
       this.error.set(errorMessage(e));
     } finally {
       this.pending.set(null);

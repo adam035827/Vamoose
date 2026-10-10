@@ -102,7 +102,7 @@ export class TripPage {
             ? 'Waiting for the group to review the plan. You can still edit it, approve or deny change requests, or lock it.'
             : t.myApproval
               ? `You ${t.myApproval === 'Approved' ? 'approved' : 'asked for changes to'} this version of the plan.`
-              : 'Review the plan and tell the group what works for you.',
+              : 'Review the plan and tell the group what works for you. You have 24 hours to respond.',
         };
       case 'Locked':
         return { tone: 'success', text: 'This trip is locked. This is the final plan.' };

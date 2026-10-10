@@ -46,7 +46,12 @@
   </div>
 
   @if (error()) {
-    <p class="alert chat__error" role="alert">{{ error() }}</p>
+    <p class="alert chat__error" role="alert">
+      {{ error() }}
+      @if (failed()) {
+        <button type="button" class="btn btn--small" (click)="retry()">Retry</button>
+      }
+    </p>
   }
 
   @if (canChat()) {

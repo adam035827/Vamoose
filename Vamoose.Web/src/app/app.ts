@@ -40,7 +40,7 @@ export class App {
 
   protected async logout(): Promise<void> {
     await this._auth.logout();
-    await this._router.navigate(['/login']);
+    await this._router.navigate(['/']);
   }
 
   protected openToast(n: AppNotification): void {

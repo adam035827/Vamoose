@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal } from '@angular/core';
-import { CATEGORY_ICON, formatPrice, formatTime } from '@functions/format';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
+import { CATEGORY_ICON, formatPrice, formatTime, timeLeft } from '@functions/format';
 import { Choice, PlanItem, TripDetail } from '@interfaces/api';
 
 @Component({
@@ -27,7 +27,14 @@ export class ReviewPanel {
   );
   protected readonly isPrimary = computed(() => this.trip().myRole === 'Primary');
 
+  // Travelers have 24 hours to respond to each version of the plan.
+  private readonly _now = signal(Date.now());
+  protected readonly remaining = computed(() => timeLeft(this.trip().responseDeadline, this._now()));
+
   constructor() {
+    const timer = setInterval(() => this._now.set(Date.now()), 30_000);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+
     // Start from the user's earlier answers, or the plan's current choice.
     effect(() => {
       const trip = this.trip();

@@ -46,9 +46,17 @@
                 @if (current.description) {
                   <p class="item__desc muted">{{ current.description }}</p>
                 }
-                @if (current.url) {
-                  <a class="item__link" [href]="current.url" target="_blank" rel="noopener noreferrer">View source ↗</a>
-                }
+                <p class="item__source">
+                  @if (current.energyLevel) {
+                    <span class="energy energy--{{ current.energyLevel }}">{{ current.energyLevel }} energy</span>
+                  }
+                  @if (current.sourceUrl) {
+                    <a class="item__link" [href]="current.sourceUrl" target="_blank" rel="noopener noreferrer">Source ↗</a>
+                  }
+                  @if (fetched(current); as f) {
+                    <span class="muted">Price checked {{ f }}</span>
+                  }
+                </p>
               }
 
               @if (!isFinal() && alternatives(item).length) {
@@ -71,8 +79,11 @@
                           @if (alt.description) {
                             <span class="alt__desc muted">{{ alt.description }}</span>
                           }
-                          @if (alt.url) {
-                            <a class="item__link" [href]="alt.url" target="_blank" rel="noopener noreferrer">Source ↗</a>
+                          @if (alt.sourceUrl) {
+                            <a class="item__link" [href]="alt.sourceUrl" target="_blank" rel="noopener noreferrer">Source ↗</a>
+                          }
+                          @if (fetched(alt); as f) {
+                            <span class="alt__desc muted">Price checked {{ f }}</span>
                           }
                         </div>
                         @if (canEdit()) {

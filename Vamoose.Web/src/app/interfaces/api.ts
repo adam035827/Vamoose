@@ -1,6 +1,6 @@
 export type TripStatus = 'Planning' | 'Agreement' | 'Locked' | 'Cancelled';
 export type MemberRole = 'Primary' | 'Traveler';
-export type PlanCategory = 'Flight' | 'Hotel' | 'Restaurant' | 'Activity';
+export type PlanCategory = 'Flight' | 'Lodging' | 'Activity' | 'Dining' | 'Transit' | 'Free';
 
 export interface User {
   id: string;
@@ -33,11 +33,13 @@ export interface PlanOption {
   description: string | null;
   provider: string | null;
   location: string | null;
-  price: number | null;
+  estimatedCost: number | null;
   currency: string | null;
-  url: string | null;
+  sourceUrl: string | null;
+  priceFetchedAt: string | null;
   startTime: string | null;
   endTime: string | null;
+  energyLevel: 'Low' | 'Medium' | 'High' | null;
   votes: number;
 }
 
@@ -47,6 +49,7 @@ export interface PlanItem {
   category: PlanCategory;
   title: string;
   day: number | null;
+  date: string | null;
   selectedOptionId: string | null;
   question: string | null;
   myChoiceOptionId: string | null;
@@ -89,18 +92,42 @@ export interface TripDetail {
   primaryEmail: string;
   myApproval: 'Approved' | 'Denied' | null;
   consensus: boolean;
+  responseDeadline: string | null;
   members: Member[];
   items: PlanItem[];
   changeRequests: ChangeRequest[];
   permissions: Permissions;
 }
 
-export interface CreateTrip {
-  name: string;
+export interface StartIntro {
+  reply: string;
   destination: string;
-  startDate: string | null;
-  endDate: string | null;
-  notes: string | null;
+  tripName: string;
+}
+
+export interface StartTrip {
+  prompt: string;
+  destination: string;
+  tripName: string;
+  organizerEmail: string;
+  travelerEmails: string[];
+}
+
+export interface StartTripResult {
+  tripId: string;
+  user: User;
+}
+
+export interface MagicLinkResult {
+  user: User;
+  tripId: string;
+}
+
+export interface OutboxEmail {
+  to: string;
+  subject: string;
+  body: string;
+  sentAt: string;
 }
 
 export interface ChatMessage {

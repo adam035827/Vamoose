@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
-import { CATEGORY_ICON, formatPrice, formatTime, groupByDay, selectedOption } from '@functions/format';
+import { CATEGORY_ICON, formatFetched, formatMoney, formatPrice, formatTime, groupByDay, selectedOption } from '@functions/format';
 import { PlanItem, PlanOption, TripDetail } from '@interfaces/api';
 
 @Component({
@@ -19,18 +19,19 @@ export class PlanPanel {
   protected readonly showVotes = computed(() => this.trip().status === 'Agreement' || this.trip().status === 'Locked');
   protected readonly isFinal = computed(() => this.trip().status === 'Locked');
   protected readonly total = computed(() => {
-    const options = this.trip().items.map(selectedOption).filter((o): o is PlanOption => !!o?.price);
+    const options = this.trip().items.map(selectedOption).filter((o): o is PlanOption => o?.estimatedCost != null);
     if (!options.length) {
       return null;
     }
     const currency = options[0].currency ?? 'USD';
-    const sum = options.filter((o) => (o.currency ?? 'USD') === currency).reduce((acc, o) => acc + (o.price ?? 0), 0);
-    return formatPrice({ ...options[0], price: sum, currency });
+    const sum = options.filter((o) => (o.currency ?? 'USD') === currency).reduce((acc, o) => acc + (o.estimatedCost ?? 0), 0);
+    return formatMoney(sum, currency);
   });
 
   protected readonly icon = CATEGORY_ICON;
   protected readonly price = formatPrice;
   protected readonly time = formatTime;
+  protected readonly fetched = formatFetched;
   protected readonly selected = selectedOption;
 
   protected alternatives(item: PlanItem): PlanOption[] {

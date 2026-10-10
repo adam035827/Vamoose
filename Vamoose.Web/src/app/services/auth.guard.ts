@@ -8,16 +8,10 @@ import { AuthService } from './auth.service';
 export const authGuard: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return (await auth.ensureSession()) || router.createUrlTree(['/login']);
+  return (await auth.ensureSession()) || router.createUrlTree(['/']);
 };
 
-export const guestGuard: CanActivateFn = async () => {
-  const auth = inject(AuthService);
-  const router = inject(Router);
-  return !(await auth.ensureSession()) || router.createUrlTree(['/']);
-};
-
-// An expired session sends the user back to the login page.
+// An expired session sends the user back to the start page.
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -25,7 +19,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error: unknown) => {
       if (error instanceof HttpErrorResponse && error.status === 401 && !req.url.endsWith('/api/auth/me')) {
         auth.clear();
-        void router.navigate(['/login']);
+        void router.navigate(['/']);
       }
       return throwError(() => error);
     }),

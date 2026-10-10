@@ -5,8 +5,11 @@ import {
   ChatMessage,
   ChatResponse,
   Choice,
-  CreateTrip,
   ExitPreview,
+  OutboxEmail,
+  StartIntro,
+  StartTrip,
+  StartTripResult,
   TripDetail,
   TripSummary,
 } from '@interfaces/api';
@@ -19,8 +22,17 @@ export class TripService {
     return firstValueFrom(this._http.get<TripSummary[]>('/api/trips'));
   }
 
-  create(trip: CreateTrip): Promise<TripDetail> {
-    return firstValueFrom(this._http.post<TripDetail>('/api/trips', trip));
+  // Starting a trip is a short conversation with the agent instead of a form (requirements 3.1).
+  intro(message: string): Promise<StartIntro> {
+    return firstValueFrom(this._http.post<StartIntro>('/api/start/intro', { message }));
+  }
+
+  start(request: StartTrip): Promise<StartTripResult> {
+    return firstValueFrom(this._http.post<StartTripResult>('/api/start', request));
+  }
+
+  outbox(): Promise<OutboxEmail[]> {
+    return firstValueFrom(this._http.get<OutboxEmail[]>('/api/dev/outbox'));
   }
 
   get(id: string): Promise<TripDetail> {
