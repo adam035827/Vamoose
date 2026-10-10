@@ -82,7 +82,6 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 
-// Integration tests build their own SQLite schema.
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
@@ -92,13 +91,6 @@ if (!app.Environment.IsEnvironment("Testing"))
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-
-    // Gives each developer a demo trip to show.
-    if (app.Configuration.GetValue("Demo:Seed", false))
-    {
-        using var scope = app.Services.CreateScope();
-        await DemoSeeder.SeedAsync(scope.ServiceProvider);
-    }
 }
 
 app.UseAuthentication();
