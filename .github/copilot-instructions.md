@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions for Vamoose
 
-An AI-assisted group trip planner. Front-end: **Angular 21** (PWA). Back-end: **.NET 10 (ASP.NET Core)**.
+An AI-assisted group trip planner. Front-end: **Angular 20** (PWA). Back-end: **.NET 9 (ASP.NET Core)**.
 
 ---
 
@@ -49,13 +49,15 @@ Out (for now): payments, real bookings, multi-destination trips, advanced hard-c
 ## Technology Stack
 
 ### Front-end
-- **Framework**: Angular 21+ (installable PWA, mobile-first; travelers primarily use phones)
+- **Framework**: Angular 20 (installable PWA, mobile-first; travelers primarily use phones)
 - **Language**: TypeScript (Strict Mode)
 - **Styling**: SCSS with BEM naming convention
 - **State Management**: Angular Signals (preferred over RxJS Subjects/BehaviorSubjects)
 
 ### Back-end
-- **Framework**: .NET 10 / ASP.NET Core (Controllers)
+- **Framework**: .NET 9 / ASP.NET Core (Controllers)
+- **Database**: Amazon RDS for SQL Server Express via EF Core (`Microsoft.EntityFrameworkCore.SqlServer`)
+- **AI**: Strands Agents (Python) in `Vamoose.Agents`, hosted on Amazon Bedrock AgentCore Runtime; the Application layer calls it over HTTP through an interface (e.g. `IAgentClient`) so it can be swapped or faked
 
 ---
 
@@ -63,25 +65,43 @@ Out (for now): payments, real bookings, multi-destination trips, advanced hard-c
 
 ```
 Vamoose/
-├── src/
-│   ├── Vamoose.Api/             # ASP.NET Core host (controllers/endpoints, middleware, DI composition)
-│   ├── Vamoose.Application/     # Use cases, services, DTOs, validators, interfaces
-│   ├── Vamoose.Domain/          # Entities, value objects, domain rules (no external dependencies)
-│   ├── Vamoose.Infrastructure/  # EF Core, repositories, external clients, implementations of interfaces
-│   └── Vamoose.Web/             # Angular app
-│       └── src/app/
-│           ├── components/        # Reusable UI components
-│           ├── pages/             # Route-level components
-│           ├── services/          # Injectable services
-│           ├── interfaces/        # TypeScript interfaces / API models
-│           ├── pipes/
-│           ├── directives/
-│           ├── functions/         # Pure utility functions
-│           └── data/              # Static data and constants
-└── Directory.Build.props          # Shared build settings (TargetFramework net10.0, Nullable)
+├── Vamoose.Api/             # ASP.NET Core host (controllers/endpoints, middleware, DI composition)
+├── Vamoose.Application/     # Use cases, services, DTOs, validators, interfaces
+├── Vamoose.Domain/          # Entities, value objects, domain rules (no external dependencies)
+├── Vamoose.Infrastructure/  # EF Core, repositories, external clients, implementations of interfaces
+├── Vamoose.Agents/          # Python Strands agent service (AgentCore contract: /ping, /invocations)
+├── Vamoose.Web/             # Angular app
+│   └── src/app/
+│       ├── components/      # Reusable UI components
+│       ├── pages/           # Route-level components
+│       ├── services/        # Injectable services
+│       ├── interfaces/      # TypeScript interfaces / API models
+│       ├── pipes/
+│       ├── directives/
+│       ├── functions/       # Pure utility functions
+│       └── data/            # Static data and constants
+└── Directory.Build.props    # Shared build settings (TargetFramework net9.0, Nullable)
 ```
 
 Dependency direction: `Api → Application → Domain`; `Infrastructure → Application`. Domain never references outer layers.
+
+---
+
+## Deployment (EC2)
+
+Single Ubuntu 24.04 EC2 instance: Nginx serves the Angular build and proxies `/api/*` to the .NET 9 API on `127.0.0.1:5000`. The database is Amazon RDS for SQL Server Express, and the agent service runs on Amazon Bedrock AgentCore Runtime.
+
+- `/home/ubuntu/Vamoose` holds the cloned source.
+- `/var/www/vamoose/frontend` holds the Angular build, which Nginx serves.
+- `/var/www/vamoose/api` holds the published .NET output.
+
+Redeploy on the server after pushing to `main`:
+
+```bash
+cd ~/Vamoose && git pull
+cd Vamoose.Web && npm ci && npm run build && sudo cp -r dist/Vamoose.Web/browser/. /var/www/vamoose/frontend/
+cd ../Vamoose.Api && dotnet publish -c Release -o ~/api-publish && sudo cp -r ~/api-publish/. /var/www/vamoose/api/ && sudo systemctl restart vamoose-api
+```
 
 ---
 
@@ -140,7 +160,7 @@ Use TypeScript path aliases for imports (adjust to match `tsconfig.json`):
 
 ### General
 
-1. **Target `net10.0`**; enable `<Nullable>enable</Nullable>` and `<ImplicitUsings>enable</ImplicitUsings>` in `Directory.Build.props`
+1. **Target `net9.0`**; enable `<Nullable>enable</Nullable>` and `<ImplicitUsings>enable</ImplicitUsings>` in `Directory.Build.props`
 2. **Use modern C#** — primary constructors, records for DTOs/value objects, pattern matching, collection expressions, `required` members, file-scoped namespaces
 3. **Constructor injection only** — no service locator, no `static` access to services
 4. **Async all the way** — `async`/`await` with `CancellationToken` passed through every I/O call; never `.Result` / `.Wait()`; suffix async methods with `Async`
