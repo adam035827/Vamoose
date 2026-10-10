@@ -1,0 +1,6 @@
+@Vamoose.Api_HostAddress = http://localhost:5019
+
+GET {{Vamoose.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
