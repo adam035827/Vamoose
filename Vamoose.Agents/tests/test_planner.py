@@ -53,12 +53,75 @@ async def collect(payload: dict, settings: Settings, model_factory=None) -> list
 async def test_chat_returns_reply_and_plan_with_sources_and_offers_web_search():
     model = ScriptedToolModel("ChatReply", {"reply": "Here's a plan.", "plan": PLAN})
 
-    reply = await chat(invocation(action="Chat", message="Plan it", canEditPlan=True), model)
+    reply = await chat(invocation(action="Chat", message="Plan it", canEditPlan=True, plan=PLAN), model)
 
     assert reply.plan is not None and len(reply.plan.slots) == 4
     option = reply.plan.slots[0].options[0]
     assert option.estimated_cost_per_person and option.source_url and option.price_fetched_at
     assert {"web_search", "ChatReply"} <= {spec["name"] for spec in model.calls[0]["tool_specs"]}
+
+
+def _plan_with_sources(*urls: str | None) -> dict:
+    return {
+        "slots": [
+            {
+                "key": "dinner-day-1",
+                "category": "Dining",
+                "title": "Dinner",
+                "selectedIndex": 0,
+                "options": [
+                    {"title": f"Option {i}", "sourceUrl": url, "priceFetchedAt": "2020-01-01T00:00:00Z"}
+                    for i, url in enumerate(urls)
+                ],
+            }
+        ]
+    }
+
+
+async def test_chat_keeps_only_sources_that_search_actually_returned():
+    searched = "https://example.com/real-bbq"
+    model = ScriptedToolModel(
+        "ChatReply",
+        {"reply": "Planned.", "plan": _plan_with_sources(searched, "https://example.com/made-up")},
+        before=[("web_search", {"query": "bbq nashville"})],
+    )
+
+    reply = await chat(
+        invocation(action="Chat", message="Plan dinner", canEditPlan=True),
+        model,
+        search_fn=lambda q: [{"title": "BBQ", "url": searched, "snippet": "$20"}],
+    )
+
+    real, invented = reply.plan.slots[0].options
+    assert real.source_url == searched and real.price_fetched_at.year >= 2026
+    assert invented.source_url is None and invented.price_fetched_at is None
+
+
+async def test_chat_keeps_sources_already_in_the_current_plan():
+    current = _plan_with_sources("https://example.com/from-earlier")
+    model = ScriptedToolModel("ChatReply", {"reply": "Kept it.", "plan": current})
+
+    reply = await chat(invocation(action="Chat", message="Keep dinner", canEditPlan=True, plan=current), model)
+
+    option = reply.plan.slots[0].options[0]
+    assert option.source_url == "https://example.com/from-earlier"
+    assert option.price_fetched_at.year == 2020
+
+
+async def test_chat_drops_sources_when_search_fails():
+    def failing(_: str) -> list[dict]:
+        raise ConnectionError("dns")
+
+    model = ScriptedToolModel(
+        "ChatReply",
+        {"reply": "Estimates only.", "plan": _plan_with_sources("https://www.yelp.com/search?find_desc=bbq")},
+        before=[("web_search", {"query": "bbq"})],
+    )
+
+    reply = await chat(invocation(action="Chat", message="Plan", canEditPlan=True), model, search_fn=failing)
+
+    option = reply.plan.slots[0].options[0]
+    assert option.source_url is None and option.price_fetched_at is None
 
 
 async def test_chat_without_trip_is_the_trip_intro():

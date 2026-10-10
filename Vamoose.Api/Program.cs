@@ -61,7 +61,7 @@ builder.Services.AddHostedService<ResponseWindowCloser>();
 builder.Services.AddHttpClient<IAgentClient, HttpAgentClient>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["Agents:BaseUrl"] ?? "http://localhost:8080/");
-    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Agents:TimeoutSeconds", 120));
+    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Agents:TimeoutSeconds", 180));
 });
 
 var app = builder.Build();
