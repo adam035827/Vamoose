@@ -3,8 +3,8 @@ import { Home } from './pages/home/home';
 import { authGuard } from '@services/auth.guard';
 
 export const routes: Routes = [
-  // The home page is the agent: "Where do you want to go?" (requirements 3.1, 3.3).
-  { path: '', component: Home },
+  { path: '', pathMatch: 'full', loadComponent: () => import('./pages/welcome/welcome').then((m) => m.Welcome) },
+  { path: 'home', component: Home },
   { path: 't/:token', loadComponent: () => import('./pages/magic-link/magic-link').then((m) => m.MagicLink) },
   {
     path: 'trips/:id',

@@ -1,13 +1,13 @@
 <section class="start">
   @if (step() === 'ask' || step() === 'thinking') {
     <div class="start__hero">
-      <div class="start__logo" aria-hidden="true">✈</div>
+      <img class="start__logo" src="/oo.svg" alt="" aria-hidden="true" />
       <h1 class="start__title">Where do you want to go?</h1>
-      <p class="start__tagline muted">Find the overlap. Go. Tell the Vamoose agent your idea and it'll plan it with your group.</p>
 
       <form class="start__ask" (ngSubmit)="ask()">
         <label class="sr-only" for="start-prompt">Where do you want to go?</label>
         <input
+          #promptInput
           id="start-prompt"
           class="input start__input"
           name="prompt"
@@ -18,9 +18,11 @@
           (ngModelChange)="prompt.set($event)"
           [disabled]="step() === 'thinking'"
         />
-        <button type="submit" class="btn btn--primary start__go" [disabled]="!prompt().trim() || step() === 'thinking'">
-          {{ step() === 'thinking' ? '…' : 'Go' }}
-        </button>
+        @if (prompt().trim()) {
+          <button type="submit" class="btn btn--primary start__go" [disabled]="step() === 'thinking'">
+            {{ step() === 'thinking' ? '…' : 'Go' }}
+          </button>
+        }
       </form>
       @if (step() === 'thinking') {
         <p class="start__status muted" role="status">The agent is looking it up…</p>

@@ -1,35 +1,38 @@
+:host {
+  display: block;
+  min-height: inherit;
+}
+
 .start {
+  display: flex;
+  flex-direction: column;
   max-width: 720px;
   margin: 0 auto;
   padding: var(--space-6) var(--space-4);
-  min-height: calc(100dvh - var(--header-height));
+  min-height: inherit;
 
   &__hero {
     display: flex;
     flex-direction: column;
+    flex: 1;
     align-items: center;
+    justify-content: center;
+    container-type: inline-size;
     gap: var(--space-3);
-    margin-top: 8vh;
     text-align: center;
+    animation: start-hero-fade-in 450ms ease-out both;
   }
 
   &__logo {
-    display: grid;
-    place-items: center;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
-    font-size: 26px;
+    display: block;
+    width: 72px;
+    height: auto;
   }
 
   &__title {
-    font-size: 34px;
-
-    @media (min-width: 600px) {
-      font-size: 44px;
-    }
+    max-width: 100%;
+    font-size: min(44px, 7cqi);
+    white-space: nowrap;
   }
 
   &__tagline {
@@ -45,7 +48,7 @@
     padding: var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
-    background: var(--color-surface);
+    background: var(--color-brand-text);
     box-shadow: var(--shadow-pop);
   }
 
@@ -62,10 +65,47 @@
   &__go {
     min-width: 72px;
     border-radius: var(--radius-md);
+    border-color: var(--color-brand-accent);
+    background: var(--color-brand-accent);
+    color: var(--color-brand-text);
+    animation: start-go-enter 220ms ease-out both;
+
+    &:hover:not(:disabled) {
+      background: var(--color-brand-accent);
+    }
   }
 
   &__status {
     margin: 0;
+  }
+}
+
+@keyframes start-go-enter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes start-hero-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start__hero,
+  .start__go {
+    animation: none;
   }
 }
 
