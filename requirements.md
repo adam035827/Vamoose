@@ -10,6 +10,8 @@ Find the overlap. Go.
 
 Vamoose is a group trip planning app. A user creates a trip and plans it by chatting with the Vamoose AI agent, which searches the internet and offers options. The group can be looped in with poll style questions, which they have 24 hr to respond too be considered. Once the trip is finalized, the creator sends it to the other travelers.
 
+Agent interactions take the place of a traditional html form. 
+
 _Part 1 covers trip creation, planning and sharing (section 3). Part 2 covers group agreement, exiting, cancelling and locking (section 4)._
 
 ## 2. Users
@@ -20,22 +22,29 @@ _Part 1 covers trip creation, planning and sharing (section 3). Part 2 covers gr
 
 ## 3. Features (Part 1)
 
-### 3.1 Login
+### 3.1 Start a trip
+ - the user lands onthe home page with a single prompt - 'Where do you want to go?"
+ - the user inputs their basic details. and hit 'Go'
+ - in agent comes up with a very short responce about the desination, and always starts with the same first questions:
+    - Who are you? [email address]
+    - Who all is going? [multiple email addresses]
+ - User clicks go and the 'trip' is created and the details are saved along with all the users and their roles. 
+ - The agent reponds with questions about the group and gets any initial details from the 'planner'
 
-- The login page has a single text box for an email address.
-- After entering the email, the user goes to the home page.
-- No password and no email verification in this version. Anyone who types an email logs in as that user. This is accepted for the MVP and is not secure; verification (magic link or code) can be added later.
-- New vs returning users and session handling are **TBD**.
+### 3.2 Login
+
+- There is no login - each user gets a magic link emailed to them which is the only access needed for a trip
+- No password and no email verification in this version.
 
 ### 3.2 Create a trip
 
 - The user must create a "Trip" before using the agent.
-- A user can have multiple trips. The home page shows a list of the user's trips (as primary user and as traveler), and the user picks one to open its chat.
-- Trip creation fields (name, destination, dates, etc.) are **TBD**.
+- A user can have multiple trips - each with it's own magic link. The user picks one to open its chat.
+
 
 ### 3.3 Home page and Vamoose agent
 
-- The home page is mostly a chat interface with the Vamoose agent.
+- The home page is just a chat interface with the Vamoose agent.
 - The user uses the chat to plan and fine-tune the trip details.
 - The agent searches the internet for information and presents options to the user.
 - The user chooses from the options, and the choices are saved to the trip.
