@@ -1,1 +1,251 @@
-/* You can add global styles to this file, and also import other style files */
+/* Design tokens. Components use these variables only; never hardcode colors. */
+:root {
+  color-scheme: light;
+  --color-bg: #2f78ad;
+  --background-page: linear-gradient(155deg, #2f78ad, #7dc687);
+  --color-surface: #ffffff;
+  --color-surface-muted: #efede6;
+  --color-border: #222;
+  --color-brand-accent: #d7e02d;
+  --color-brand-text: #333333;
+  --color-input-placeholder: #b3b3b3;
+  --color-accent: var(--color-brand-accent);
+  --color-text: var(--color-brand-text);
+  --color-text-muted: #61656b;
+  --color-primary: #0f766e;
+  --color-primary-hover: #0b5f58;
+  --color-primary-soft: #d9f0ed;
+  --color-on-primary: #ffffff;
+  --color-accent-soft: #fde8dc;
+  --color-success: #2b8a3e;
+  --color-success-soft: #dcf2e0;
+  --color-danger: #c92a2a;
+  --color-danger-soft: #fbe2e2;
+  --color-warning: #b26a00;
+  --color-warning-soft: #fdf0d5;
+  --color-agent-bubble: #ffffff;
+  --color-user-bubble: #0f766e;
+  --color-on-user-bubble: #ffffff;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 16px rgb(0 0 0 / 5%);
+  --shadow-pop: 0 8px 32px rgb(0 0 0 / 16%);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Quicksand', sans-serif;
+  --header-height: 56px;
+  --tap: 44px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--background-page);
+  background-attachment: fixed;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+input,
+textarea,
+select {
+  color: var(--color-surface);
+  background-color: var(--color-brand-text);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-input-placeholder);
+  opacity: 1;
+}
+
+/* Shared building blocks */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn--danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn--small {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand-text);
+}
+
+.input:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.badge--Planning {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.badge--Agreement {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.badge--Locked {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.badge--Cancelled {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.alert {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 14px;
+}
+
+.alert--info {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.alert--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

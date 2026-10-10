@@ -1,0 +1,253 @@
+:host {
+  display: block;
+  min-height: inherit;
+}
+
+.start {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+  min-height: inherit;
+
+  &__hero {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    container-type: inline-size;
+    gap: var(--space-3);
+    text-align: center;
+    animation: start-hero-fade-in 450ms ease-out both;
+  }
+
+  &__logo {
+    display: block;
+    width: 72px;
+    height: auto;
+  }
+
+  &__title {
+    max-width: 100%;
+    font-size: min(44px, 7cqi);
+    white-space: nowrap;
+  }
+
+  &__tagline {
+    max-width: 460px;
+    margin: 0;
+  }
+
+  &__ask {
+    display: flex;
+    gap: var(--space-2);
+    width: 100%;
+    margin-top: var(--space-3);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-brand-text);
+    box-shadow: var(--shadow-pop);
+  }
+
+  &__input {
+    flex: 1;
+    border: 0;
+    font-size: 17px;
+
+    &:focus-visible {
+      outline: none;
+    }
+  }
+
+  &__go {
+    min-width: 72px;
+    border-radius: var(--radius-md);
+    border-color: var(--color-brand-accent);
+    background: var(--color-brand-accent);
+    color: var(--color-brand-text);
+    animation: start-go-enter 220ms ease-out both;
+
+    &:hover:not(:disabled) {
+      background: var(--color-brand-accent);
+    }
+  }
+
+  &__status {
+    margin: 0;
+  }
+}
+
+@keyframes start-go-enter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes start-hero-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start__hero,
+  .start__go {
+    animation: none;
+  }
+}
+
+.convo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.msg {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 100%;
+
+  &--user {
+    justify-content: flex-end;
+  }
+
+  &__avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  &__bubble {
+    margin: 0;
+    max-width: 85%;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+    background: var(--color-agent-bubble);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  &--user &__bubble {
+    border-color: transparent;
+    border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+    background: var(--color-user-bubble);
+    color: var(--color-on-user-bubble);
+  }
+}
+
+.who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4);
+
+  &__travelers {
+    resize: vertical;
+  }
+
+  &__hint {
+    font-size: 13px;
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+
+  &--bad {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+}
+
+.mine {
+  margin-top: var(--space-6);
+
+  &__title {
+    margin-bottom: var(--space-3);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  &__list {
+    display: grid;
+    gap: var(--space-2);
+
+    @media (min-width: 600px) {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+}
+
+.trip-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-pop);
+  }
+
+  &__name {
+    margin-top: var(--space-1);
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  &__meta {
+    font-size: 13px;
+  }
+}

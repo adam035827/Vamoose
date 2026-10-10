@@ -1,0 +1,85 @@
+<div class="review">
+  <div class="review__intro card">
+    <h2>Does this plan work for you?</h2>
+    @if (remaining(); as r) {
+      <p class="review__deadline">⏳ Responses close in <strong>{{ r }}</strong></p>
+    } @else if (trip().responseDeadline) {
+      <p class="review__deadline review__deadline--closed">The 24-hour response window for this plan has closed.</p>
+    }
+    <p class="muted">
+      Keep the plan's choice, or pick an alternative.
+      @if (isPrimary()) {
+        As the organizer, your picks change the plan directly.
+      } @else {
+        Alternatives go to {{ trip().primaryEmail }} to approve.
+      }
+    </p>
+    @if (trip().myApproval === 'Approved') {
+      <p class="alert alert--info">✓ You approved this version of the plan. You can still change your answers.</p>
+    } @else if (trip().myApproval === 'Denied') {
+      <p class="alert alert--warning">You asked for changes. You'll be notified when the organizer decides.</p>
+    }
+    @if (!isPrimary() && myPending().length) {
+      <ul class="review__pending">
+        @for (r of myPending(); track r.id) {
+          <li>⏳ {{ r.itemTitle }}: {{ r.fromTitle }} → {{ r.toTitle }} (waiting for approval)</li>
+        }
+      </ul>
+    }
+    <button type="button" class="btn btn--ghost btn--small review__chat" (click)="openChat.emit()">
+      💬 Questions? Ask the agent
+    </button>
+  </div>
+
+  @for (item of trip().items; track item.id) {
+    <fieldset class="question card" [disabled]="!trip().permissions.canRespond || busy()">
+      <legend class="question__legend">
+        <span class="question__icon" aria-hidden="true">{{ icon[item.category] }}</span>
+        <span class="question__title">{{ item.title }}</span>
+      </legend>
+      <p class="question__text">{{ item.question ?? 'Does this work for you?' }}</p>
+      <div class="question__options">
+        @for (o of item.options; track o.id) {
+          <label class="opt" [class.opt--checked]="choices()[item.id] === o.id">
+            <input
+              type="radio"
+              class="sr-only"
+              [name]="'q-' + item.id"
+              [checked]="choices()[item.id] === o.id"
+              (change)="choose(item, o.id)"
+            />
+            <span class="opt__radio" aria-hidden="true"></span>
+            <span class="opt__body">
+              <span class="opt__title">
+                {{ o.title }}
+                @if (o.id === item.selectedOptionId) {
+                  <span class="badge badge--Planning">In plan</span>
+                }
+              </span>
+              <span class="opt__meta muted">
+                @if (o.provider) { {{ o.provider }} · }
+                @if (time(o); as tm) { {{ tm }} · }
+                {{ price(o) ?? 'Price unknown' }} · 👍 {{ o.votes }}
+              </span>
+            </span>
+          </label>
+        }
+      </div>
+    </fieldset>
+  }
+
+  @if (trip().permissions.canRespond) {
+    <div class="review__submit card">
+      <p class="muted">
+        @if (changes().length === 0) {
+          You're keeping everything as planned.
+        } @else {
+          You picked {{ changes().length }} {{ changes().length === 1 ? 'alternative' : 'alternatives' }}.
+        }
+      </p>
+      <button type="button" class="btn btn--primary" [disabled]="busy()" (click)="submit()">
+        {{ changes().length === 0 ? '✓ Approve the plan' : isPrimary() ? 'Apply my changes' : 'Request these changes' }}
+      </button>
+    </div>
+  }
+</div>

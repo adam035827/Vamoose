@@ -1,0 +1,103 @@
+@if (trip().items.length === 0) {
+  <div class="plan-empty card">
+    <div class="plan-empty__art" aria-hidden="true">🗺️</div>
+    <h2>No plan yet</h2>
+    <p class="muted">
+      {{ canEdit() ? 'Chat with the Vamoose agent and it will build a plan with flights, hotels, restaurants and activities, each with alternatives.' : 'The organizer is still planning this trip.' }}
+    </p>
+  </div>
+} @else {
+  <div class="plan">
+    <div class="plan__summary card">
+      <div>
+        <h2 class="plan__heading">{{ isFinal() ? 'Final plan' : 'Trip plan' }}</h2>
+        <p class="muted plan__sub">{{ trip().items.length }} items · {{ trip().members.length }} {{ trip().members.length === 1 ? 'traveler' : 'travelers' }}</p>
+      </div>
+      @if (total(); as t) {
+        <div class="plan__total">
+          <span class="plan__total-value">{{ t }}</span>
+          <span class="muted plan__total-label">per person, est.</span>
+        </div>
+      }
+    </div>
+
+    @for (group of groups(); track group.label) {
+      <h3 class="plan__day">{{ group.label }}</h3>
+      <div class="plan__timeline">
+        @for (item of group.items; track item.id) {
+          @let current = selected(item);
+          <article class="item card">
+            <div class="item__marker" aria-hidden="true">{{ icon[item.category] }}</div>
+            <div class="item__body">
+              <div class="item__top">
+                <span class="item__category">{{ item.category }} · {{ item.title }}</span>
+                @if (showVotes() && current) {
+                  <span class="item__votes" title="Travelers who chose this">👍 {{ current.votes }}</span>
+                }
+              </div>
+              @if (current) {
+                <h4 class="item__title">{{ current.title }}</h4>
+                <p class="item__meta">
+                  @if (current.provider) { <span>{{ current.provider }}</span> }
+                  @if (time(current); as tm) { <span>🕒 {{ tm }}</span> }
+                  @if (current.location) { <span>📍 {{ current.location }}</span> }
+                  @if (price(current); as p) { <span class="item__price">{{ p }}</span> }
+                </p>
+                @if (current.description) {
+                  <p class="item__desc muted">{{ current.description }}</p>
+                }
+                <p class="item__source">
+                  @if (current.energyLevel) {
+                    <span class="energy energy--{{ current.energyLevel }}">{{ current.energyLevel }} energy</span>
+                  }
+                  @if (current.sourceUrl) {
+                    <a class="item__link" [href]="current.sourceUrl" target="_blank" rel="noopener noreferrer">Source ↗</a>
+                  }
+                  @if (fetched(current); as f) {
+                    <span class="muted">Price checked {{ f }}</span>
+                  }
+                </p>
+              }
+
+              @if (!isFinal() && alternatives(item).length) {
+                <button type="button" class="item__toggle" (click)="toggle(item)" [attr.aria-expanded]="isExpanded(item)">
+                  {{ isExpanded(item) ? 'Hide' : 'Show' }} {{ alternatives(item).length }}
+                  {{ alternatives(item).length === 1 ? 'alternative' : 'alternatives' }}
+                </button>
+                @if (isExpanded(item)) {
+                  <ul class="alts">
+                    @for (alt of alternatives(item); track alt.id) {
+                      <li class="alt">
+                        <div class="alt__info">
+                          <span class="alt__title">{{ alt.title }}</span>
+                          <span class="alt__meta muted">
+                            @if (alt.provider) { {{ alt.provider }} · }
+                            @if (time(alt); as tm) { {{ tm }} · }
+                            {{ price(alt) ?? 'Price unknown' }}
+                            @if (showVotes()) { · 👍 {{ alt.votes }} }
+                          </span>
+                          @if (alt.description) {
+                            <span class="alt__desc muted">{{ alt.description }}</span>
+                          }
+                          @if (alt.sourceUrl) {
+                            <a class="item__link" [href]="alt.sourceUrl" target="_blank" rel="noopener noreferrer">Source ↗</a>
+                          }
+                          @if (fetched(alt); as f) {
+                            <span class="alt__desc muted">Price checked {{ f }}</span>
+                          }
+                        </div>
+                        @if (canEdit()) {
+                          <button type="button" class="btn btn--small" [disabled]="busy()" (click)="use(item, alt)">Use this</button>
+                        }
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </div>
+}

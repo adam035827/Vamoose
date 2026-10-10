@@ -1,1 +1,102 @@
-<p>home works!</p>
+<section class="start">
+  @if (step() === 'ask' || step() === 'thinking') {
+    <div class="start__hero">
+      <img class="start__logo" src="/oo.svg" alt="" aria-hidden="true" />
+      <h1 class="start__title">Where do you want to go?</h1>
+
+      <form class="start__ask" (ngSubmit)="ask()">
+        <label class="sr-only" for="start-prompt">Where do you want to go?</label>
+        <input
+          #promptInput
+          id="start-prompt"
+          class="input start__input"
+          name="prompt"
+          maxlength="500"
+          autocomplete="off"
+          placeholder="Lisbon in May with 4 friends, big on food"
+          [ngModel]="prompt()"
+          (ngModelChange)="prompt.set($event)"
+          [disabled]="step() === 'thinking'"
+        />
+        @if (prompt().trim()) {
+          <button type="submit" class="btn btn--primary start__go" [disabled]="step() === 'thinking'">
+            {{ step() === 'thinking' ? '…' : 'Go' }}
+          </button>
+        }
+      </form>
+      @if (step() === 'thinking') {
+        <p class="start__status muted" role="status">The agent is looking it up…</p>
+      }
+      @if (error()) {
+        <p class="alert" role="alert">
+          {{ error() }}
+          <button type="button" class="btn btn--small" (click)="ask()">Try again</button>
+        </p>
+      }
+    </div>
+  } @else {
+    <div class="convo">
+      <div class="msg msg--user"><p class="msg__bubble">{{ prompt() }}</p></div>
+      @if (intro(); as i) {
+        <div class="msg">
+          <span class="msg__avatar" aria-hidden="true">✈</span>
+          <p class="msg__bubble">{{ i.reply }}</p>
+        </div>
+        <div class="msg">
+          <span class="msg__avatar" aria-hidden="true">✈</span>
+          <form class="who card" (ngSubmit)="start()">
+            <label class="field">
+              <span class="field__label">Who are you?</span>
+              <input class="input" type="email" name="organizer" autocomplete="email" placeholder="you@example.com" required
+                [ngModel]="organizerEmail()" (ngModelChange)="organizerEmail.set($event)" [disabled]="step() === 'starting'" />
+            </label>
+            <label class="field">
+              <span class="field__label">Who all is going?</span>
+              <textarea class="input who__travelers" name="travelers" rows="2" placeholder="ana@example.com, ben@example.com"
+                [ngModel]="travelerInput()" (ngModelChange)="travelerInput.set($event)" [disabled]="step() === 'starting'"></textarea>
+              <span class="muted who__hint">Separate emails with commas. Everyone gets their own link once you send the trip.</span>
+            </label>
+            @if (travelers().length) {
+              <ul class="chips" aria-label="Travelers">
+                @for (t of travelers(); track t) {
+                  <li class="chip" [class.chip--bad]="invalidTravelers().includes(t)">{{ t }}</li>
+                }
+              </ul>
+            }
+            @if (invalidTravelers().length) {
+              <p class="alert" role="alert">Fix the highlighted email addresses.</p>
+            }
+            @if (error()) {
+              <p class="alert" role="alert">{{ error() }}</p>
+            }
+            <div class="who__actions">
+              <button type="button" class="btn btn--ghost btn--small" (click)="startOver()" [disabled]="step() === 'starting'">Change destination</button>
+              <button type="submit" class="btn btn--primary" [disabled]="!canStart()">
+                {{ step() === 'starting' ? 'Creating your trip…' : 'Go' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      }
+    </div>
+  }
+
+  @if (trips().length) {
+    <div class="mine">
+      <h2 class="mine__title">Your trips</h2>
+      <div class="mine__list">
+        @for (t of trips(); track t.id) {
+          <a class="trip-card card" [routerLink]="['/trips', t.id]">
+            <span class="badge badge--{{ t.status }}">{{ t.status === 'Agreement' ? 'Group review' : t.status }}</span>
+            <span class="trip-card__name">{{ t.name }}</span>
+            <span class="trip-card__meta muted">
+              📍 {{ t.destination }}
+              @if (t.startDate) { · {{ t.startDate | date: 'MMM d' }} }
+              · {{ t.myRole === 'Primary' ? 'Organizer' : 'by ' + t.primaryEmail }}
+            </span>
+          </a>
+        }
+      </div>
+    </div>
+  }
+</section>

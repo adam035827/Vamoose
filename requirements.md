@@ -78,7 +78,7 @@ Exact fields for each of these are **TBD**. Minimum fields, matching what the ag
 | `estimatedCostPerPerson` | `{ amount, currency }` |
 | `energyLevel` | `Low`, `Medium`, `High` |
 
-Required additions (not yet in the agent contract):
+Required additions (implemented in the agent's plan contract, `PlanSlot` and `PlanOption`):
 
 - `alternatives`: each item keeps the other options considered during planning, so 4.2 can offer them without inventing new ones.
 - `sourceUrl` and `priceFetchedAt` on the chosen option and each alternative, so prices and links from web search are traceable.
@@ -87,7 +87,7 @@ Required additions (not yet in the agent contract):
 
 - When the trip details are final, the primary user sends the trip to all other users in the trip.
 - Other travelers are added to a trip by entering their email addresses.
-- The finalized trip is delivered in-app only. A traveler sees it after logging in with their email. No email notification is sent.
+- The finalized trip is delivered in-app only. A traveler sees it after opening their magic link (3.2). No email notification is sent; the magic link email is the only email.
 - What travelers can do with the received trip (view, accept or decline, comment) will be decided later.
 - After sending, the primary user can still edit the trip. Edits update what travelers see in-app, and travelers are notified when the primary user edits a sent trip.
 - Finalizing and sending are the same action: when the primary user finalizes the trip, it is sent to all other users. Finalizing is a separate step from locking (see 4.6).
@@ -212,6 +212,12 @@ This is the integration boundary between `Vamoose.Api` and the AI. The shell mus
 | `requestId` | Lowercase letters, digits and hyphens, 3 to 64 characters |
 | `action` | See the table below |
 | `message` | The user's text (up to 4000 characters). Untrusted input. |
+| `trip` | Trip context (name, destination, dates, traveler count, status). `Chat` without `trip` is the start of a trip (3.1). |
+| `plan` | The current plan: slots, each with 1-4 options and the selected index |
+| `history` | Recent messages of this user's chat with the agent |
+| `canEditPlan` | Whether `Chat` may return an updated plan (primary user, before locking) |
+| `nudge` | `Nudge`: kind `Majority` (4.4, with vote counts) or `Stay` (4.5) |
+| `responses` | `Analyze`: who approved, denied or hasn't answered, and each participant's choice per slot. Participants are anonymous labels; `Vamoose.Api` maps them back. |
 
 **Events**, in order, each with `requestId` and an increasing `sequence`:
 
@@ -226,10 +232,10 @@ This is the integration boundary between `Vamoose.Api` and the AI. The shell mus
 | Action | Requirement | Status |
 | --- | --- | --- |
 | `Draft` | 3.1, 3.4: free-text trip idea to a structured day-by-day draft (`DraftItinerary`: title, destination, dates, group size, rationale, items, assumptions, open questions) | Implemented and tested against real Bedrock |
-| `Chat` | 3.1, 3.3 | Planned |
-| `Questions` | 4.1 | Planned |
-| `Analyze` | 4.2 | Planned |
-| `Nudge` | 4.4, 4.5 | Planned |
+| `Chat` | 3.1, 3.3: start-of-trip blurb (returns `destination`, `tripName`), then planning with a web search tool; returns `reply` and, when the plan changed, the full `plan` with alternatives | Implemented, mock and offline tests; live smoke tests opt-in |
+| `Questions` | 4.1: one question per slot, type `SingleChoice`, with `prompt` and one option label per plan option | Implemented, mock and offline tests; live smoke test opt-in |
+| `Analyze` | 4.2: per slot, approvers, dissenters and stored alternatives that apply, plus a summary | Implemented, mock and offline tests; live smoke test opt-in |
+| `Nudge` | 4.4 (kind `Majority`) and 4.5 (kind `Stay`) | Implemented, mock and offline tests; live smoke test opt-in |
 
 Unimplemented actions return a single `Error` event ("not available yet"), so the shell can call them safely.
 
@@ -237,7 +243,8 @@ Unimplemented actions return a single `Error` event ("not available yet"), so th
 
 | Variable | Purpose |
 | --- | --- |
-| `VAMOOSE_MOCK_AGENTS` | `1` returns a canned Lisbon draft without calling AWS |
+| `VAMOOSE_MOCK_AGENTS` | `1` returns canned, repeatable output for every action without calling AWS |
+| `Vamoose.Agents/.mock` | If this file exists, the running service switches to mock mode immediately (no restart), for live demos (6.2) |
 | `AWS_REGION` | Defaults to `us-east-2` |
 | `VAMOOSE_PLANNER_MODEL_ID` | Optional Bedrock model override |
 | `AWS_PROFILE` | The developer's AWS credentials profile |
@@ -247,6 +254,20 @@ Unimplemented actions return a single `Error` event ("not available yet"), so th
 
 - `Vamoose.Api` owns all trip data, users, roles, approvals, nudge counts and persistence. It saves agent results; the agent service stores nothing.
 - The agent only suggests. It cannot book, pay, invite or change data directly (see 3.3).
+
+### 5.2 Implementation notes
+
+Decisions made while implementing, where the requirements were open or ambiguous:
+
+- **Magic links (3.2):** every trip member has their own secret link. The organizer is emailed theirs when the trip starts; travelers are emailed theirs when the trip is sent (or when added to an already-sent trip). Opening a link signs the person in, so they can also see their other trips. No email provider is set up yet: in Development the emails are logged and listed at `/dev/outbox`. A real sender (for example Amazon SES) replaces `DevEmailSender`.
+- **Start a trip (3.1):** `Chat` without a trip gives the destination blurb; the app then asks "Who are you?" and "Who all is going?". The trip is created with the original prompt as the agent's first message, and the agent replies with questions about the group. The initial plan comes from `Chat` (which keeps alternatives), not `Draft`.
+- **24-hour window (1):** each plan version gets 24 hours for responses, starting when the trip is sent and restarting whenever the plan changes. After it closes, responses are refused and only people who responded in time count towards consensus. The organizer can send again to reopen it.
+- **Travelers before they log in:** anyone can be added by email; their account exists from then on.
+- **Plan items:** the categories and fields in 3.4, with 1-4 options per item.
+- **Agent context:** `Vamoose.Api` sends the trip, plan, chat history and responses in each request. The agent stores nothing.
+- **Search:** web search uses DuckDuckGo (no API key) behind one tool function, so it can be swapped.
+- **Live notifications:** SignalR (`/hubs/notifications`), plus a stored list with unread badge.
+- **Demo seed (6.2):** in Development the API seeds "Demo: Lisbon long weekend" (organizer `demo-organizer@vamoose.dev`, three travelers, plan with alternatives). The organizer's magic link is in the dev outbox after every start.
 
 ## 6. Non-functional requirements
 
@@ -277,12 +298,9 @@ Every agent feature must meet all of these before it counts as done:
 
 ### Functional (to decide)
 
-- What fields does a trip have at creation (name, destination, dates, budget)?
-- What fields do flight, hotel, restaurant and activity entries have?
-- Which internet search tool or API will the agent use (for example a search API, or flight and hotel data providers)?
-- How are the preference questions generated and answered (types, how many, can users skip)?
-- How many alternatives does each trip item keep? (Each item has alternatives; see 3.4.)
-- Can a user be added to a trip before they have ever logged in?
+- Which email provider sends magic links in production (for example Amazon SES)?
+- Should the agent use a dedicated flight and hotel data provider instead of general web search?
+- Question types beyond single choice (multiple choice, free text, rating)?
 - What can travelers do with a received trip? (Deferred to later.)
 - Web only, or also a mobile app?
 
@@ -292,6 +310,6 @@ Every agent feature must meet all of these before it counts as done:
 - How will developers reach the RDS instance: public access restricted by IP, VPN, or bastion host?
 - ~~Where will the Strands agent service run?~~ Decided: Bedrock AgentCore Runtime (5).
 - ~~Python or TypeScript for the agent service, and which model provider?~~ Decided: Python 3.13, Claude on Amazon Bedrock (5).
-- How does the agent get trip context (current plan, answers, chat history): sent in each request by `Vamoose.Api`, or fetched by the agent through tools that call `Vamoose.Api`?
-- Does the live notification feature need WebSockets/SignalR hosted on AWS (affects hosting choice)?
+- ~~How does the agent get trip context?~~ Decided: sent in each request by `Vamoose.Api` (5.2).
+- Live notifications use SignalR (WebSockets): the AWS hosting choice must support them.
 - Will production use a separate RDS instance from development, and which edition (Express, Web, Standard)?
