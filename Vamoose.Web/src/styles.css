@@ -1,1 +1,257 @@
-/* You can add global styles to this file, and also import other style files */
+/* Design tokens. Components use these variables only; never hardcode colors. */
+:root {
+  --color-bg: #f6f5f1;
+  --color-surface: #ffffff;
+  --color-surface-muted: #efede6;
+  --color-border: #dedad0;
+  --color-text: #1d1f22;
+  --color-text-muted: #61656b;
+  --color-primary: #0f766e;
+  --color-primary-hover: #0b5f58;
+  --color-primary-soft: #d9f0ed;
+  --color-on-primary: #ffffff;
+  --color-accent: #e8590c;
+  --color-accent-soft: #fde8dc;
+  --color-success: #2b8a3e;
+  --color-success-soft: #dcf2e0;
+  --color-danger: #c92a2a;
+  --color-danger-soft: #fbe2e2;
+  --color-warning: #b26a00;
+  --color-warning-soft: #fdf0d5;
+  --color-agent-bubble: #ffffff;
+  --color-user-bubble: #0f766e;
+  --color-on-user-bubble: #ffffff;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 16px rgb(0 0 0 / 5%);
+  --shadow-pop: 0 8px 32px rgb(0 0 0 / 16%);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --header-height: 56px;
+  --tap: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121416;
+    --color-surface: #1b1e21;
+    --color-surface-muted: #24282c;
+    --color-border: #33383d;
+    --color-text: #eceae4;
+    --color-text-muted: #a3a7ad;
+    --color-primary: #2dd4bf;
+    --color-primary-hover: #5eead4;
+    --color-primary-soft: #11332f;
+    --color-on-primary: #06201d;
+    --color-accent: #ff8a4c;
+    --color-accent-soft: #3a2316;
+    --color-success: #69db7c;
+    --color-success-soft: #173320;
+    --color-danger: #ff8787;
+    --color-danger-soft: #3b1a1a;
+    --color-warning: #ffc078;
+    --color-warning-soft: #36280f;
+    --color-agent-bubble: #24282c;
+    --color-user-bubble: #2dd4bf;
+    --color-on-user-bubble: #06201d;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-pop: 0 8px 32px rgb(0 0 0 / 50%);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* Shared building blocks */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.btn--danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn--small {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.input:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.badge--Planning {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.badge--Agreement {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.badge--Locked {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.badge--Cancelled {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.alert {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 14px;
+}
+
+.alert--info {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.alert--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

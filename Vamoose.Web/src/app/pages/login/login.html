@@ -1,0 +1,29 @@
+<section class="login">
+  <div class="login__card card">
+    <div class="login__logo" aria-hidden="true">✈</div>
+    <h1 class="login__title">Vamoose</h1>
+    <p class="login__tagline muted">Plan group trips with an AI agent, and get everyone on the same page.</p>
+
+    <form class="login__form" (ngSubmit)="submit()">
+      <label class="field">
+        <span class="field__label">Email</span>
+        <input
+          class="input"
+          type="email"
+          name="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+          required
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+        />
+      </label>
+      @if (error()) {
+        <p class="alert" role="alert">{{ error() }}</p>
+      }
+      <button type="submit" class="btn btn--primary" [disabled]="busy() || !email().trim()">
+        {{ busy() ? 'Signing in…' : 'Continue' }}
+      </button>
+    </form>
+  </div>
+</section>

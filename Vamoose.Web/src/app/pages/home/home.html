@@ -1,1 +1,66 @@
-<p>home works!</p>
+<section class="home">
+  <div class="home__head">
+    <div>
+      <h1 class="home__title">Your trips</h1>
+      <p class="muted home__subtitle">Create a trip, then plan it with the Vamoose agent.</p>
+    </div>
+    <a class="btn btn--primary" routerLink="/trips/new">+ New trip</a>
+  </div>
+
+  @if (error()) {
+    <p class="alert" role="alert">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="home__grid">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="trip-card trip-card--skeleton card"></div>
+      }
+    </div>
+  } @else if (trips().length === 0) {
+    <div class="empty card">
+      <div class="empty__art" aria-hidden="true">🧳</div>
+      <h2>No trips yet</h2>
+      <p class="muted">Start your first trip. You'll chat with the agent to build the plan, then send it to your group.</p>
+      <a class="btn btn--primary" routerLink="/trips/new">Create a trip</a>
+    </div>
+  } @else {
+    @if (organizing().length) {
+      <h2 class="home__section">Organizing</h2>
+      <div class="home__grid">
+        @for (t of organizing(); track t.id) {
+          <ng-container *ngTemplateOutlet="card; context: { $implicit: t }" />
+        }
+      </div>
+    }
+    @if (invited().length) {
+      <h2 class="home__section">Invited</h2>
+      <div class="home__grid">
+        @for (t of invited(); track t.id) {
+          <ng-container *ngTemplateOutlet="card; context: { $implicit: t }" />
+        }
+      </div>
+    }
+  }
+</section>
+
+<ng-template #card let-t>
+  <a class="trip-card card" [routerLink]="['/trips', t.id]">
+    <div class="trip-card__top">
+      <span class="badge badge--{{ t.status }}">{{ statusLabel(t) }}</span>
+      <span class="trip-card__people muted">{{ t.memberCount }} {{ t.memberCount === 1 ? 'person' : 'people' }}</span>
+    </div>
+    <h3 class="trip-card__name">{{ t.name }}</h3>
+    <p class="trip-card__dest">📍 {{ t.destination }}</p>
+    <p class="trip-card__meta muted">
+      @if (t.startDate) {
+        {{ t.startDate | date: 'MMM d' }}@if (t.endDate) { – {{ t.endDate | date: 'MMM d, y' }} }
+      } @else {
+        Dates not set
+      }
+      @if (t.myRole === 'Traveler') {
+        · by {{ t.primaryEmail }}
+      }
+    </p>
+  </a>
+</ng-template>
