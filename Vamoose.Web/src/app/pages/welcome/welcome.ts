@@ -26,7 +26,11 @@ export class Welcome {
     }
 
     this._navigationTimeout = setTimeout(() => {
-      void this._router.navigateByUrl('/home');
+      // void this._router.navigateByUrl('/home');
     }, 1500);
+  }
+
+  skipIntro(): void {
+    void this._router.navigateByUrl('/home');
   }
 }
