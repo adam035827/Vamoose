@@ -2,6 +2,10 @@
 
 _Living document. Updated as requirements are discussed. Items marked **TBD** are undecided._
 
+Find the overlap. Go.
+
+“Every group trip has a planner, and a group chat that goes nowhere. Vamoose gives the planner control and the group a voice. We ask everyone what they want, find where their preferences overlap, and build the agenda around it. Then we keep everyone in the loop, one ‘up next’ at a time.”
+
 ## 1. Overview
 
 Vamoose is a group trip planning app. A user creates a trip and plans it by chatting with the Vamoose AI agent, which searches the internet and offers options. Once the trip is finalized, the creator sends it to the other travelers.
