@@ -4,9 +4,11 @@ Vamoose has three parts that run side by side:
 
 | Part | Folder | URL |
 | --- | --- | --- |
-| Agent service (Python, Strands) | `Vamoose.Agents` | http://localhost:8080 |
+| Agent service (Python, AWS Strands Agents SDK, Claude on Amazon Bedrock) | `Vamoose.Agents` | http://localhost:8080 |
 | API (.NET 9) | `Vamoose.Api` | http://localhost:5019 |
 | Web app (Angular) | `Vamoose.Web` | http://localhost:4200 |
+
+The agents are built with the **AWS Strands Agents SDK** and call **Claude on Amazon Bedrock**, with live web search. This guide runs the real agents. They need the AWS setup in step 5. A **mock mode** with canned answers and no AWS account is described at the end of step 7, for quick UI work or demos.
 
 Commands are shown for **Windows (PowerShell, the VS Code default terminal)** and **Mac (zsh)**. Where only one block is shown, it works on both.
 
@@ -61,9 +63,9 @@ cd Vamoose.Web
 npm install
 ```
 
-## 5. Connect to AWS (one time, only for real Claude)
+## 5. Connect to AWS (one time, required for the real agents)
 
-Skip this section to run in mock mode, which needs no AWS account.
+The Strands agents call Claude on Amazon Bedrock in the team's AWS account (`us-east-2`). You need an access key from the AWS account owner.
 
 **5a. Add your access key.** Enter the key and secret you were sent, region `us-east-2`, output `json`. The key is stored in `~/.aws/credentials`. Never put it in the repo or in a `.env` file.
 
@@ -148,7 +150,7 @@ dotnet user-secrets set "ConnectionStrings:Vamoose" "Server=<host>,1433;Database
 
 Start them in this order. Use the **+** button in the terminal panel for each new terminal.
 
-**Terminal 1: agent service** (http://localhost:8080). Use `0` for real Claude (needs step 5) or `1` for mock mode, which returns canned answers without AWS.
+**Terminal 1: agent service with the real Strands agents** (http://localhost:8080). Needs step 5.
 
 **Windows:**
 
@@ -164,13 +166,18 @@ cd Vamoose.Agents
 VAMOOSE_MOCK_AGENTS=0 .venv/bin/python -m vamoose_agents.app
 ```
 
-With real Claude, the first line must read:
+**Check that it's using real Claude.** The first line must read:
 
 ```text
 Vamoose agent service on http://127.0.0.1:8080 - Bedrock global.anthropic.claude-sonnet-4-5-20250929-v1:0 (us-east-2, profile=vamoose)
 ```
 
-There should be no `WARNING` lines. If it says "Strands default" or `profile=default`, step 5b didn't take effect: restart VS Code or open a new terminal. Check the service at http://localhost:8080/ping, which returns `Healthy`.
+- It must say `Bedrock`, the Sonnet 4.5 model, and `profile=vamoose`, with no `WARNING` lines.
+- If it says `mock`, mock mode is on: run the command above exactly as shown (with `VAMOOSE_MOCK_AGENTS` set to `0`), and delete the file `Vamoose.Agents\.mock` if it exists.
+- If it says "Strands default" or `profile=default`, step 5b didn't take effect: restart VS Code or open a new terminal.
+- Check the service at http://localhost:8080/ping, which returns `Healthy`.
+
+Real agent replies take several seconds to a minute, because the agent searches the web and calls Claude. Each message costs a little in AWS usage.
 
 **Terminal 2: API** (http://localhost:5019):
 
@@ -190,12 +197,32 @@ npx ng serve
 
 The dev server forwards `/api` and `/hubs` (live notifications) to the API (see `Vamoose.Web/proxy.conf.json`).
 
+### Optional: mock mode (no AWS)
+
+Mock mode returns fixed, canned answers instead of calling Claude, so the whole app works without an AWS account or key. Use it for UI work, or as a fallback if Bedrock fails during a demo. Start terminal 1 with `1` instead of `0`:
+
+**Windows:**
+
+```powershell
+cd Vamoose.Agents
+$env:VAMOOSE_MOCK_AGENTS='1'; .venv\Scripts\python -m vamoose_agents.app
+```
+
+**Mac:**
+
+```bash
+cd Vamoose.Agents
+VAMOOSE_MOCK_AGENTS=1 .venv/bin/python -m vamoose_agents.app
+```
+
+The first line then ends with `- mock`, and agent replies start with "(Mock)". To switch a running agent service to mock mode without restarting it, create an empty file named `.mock` in `Vamoose.Agents`; delete the file to switch back to real Claude.
+
 ## 8. Use the app
 
 - Open http://localhost:4200. There is no login: type where you want to go, then answer "Who are you?" and "Who all is going?".
 - Everyone gets into a trip with their own **magic link**. No email is actually sent in development: open http://localhost:4200/dev/outbox to see the emails the app would have sent.
 - To try the group flow, **Finalize & send** your trip, then open a traveler's link from the outbox in a private window.
-- **Switching to mock mode during a demo:** create an empty file named `.mock` in `Vamoose.Agents`. The running agent service switches to mock mode immediately; delete the file to switch back.
+- If a reply starts with "(Mock)", the agent service is in mock mode. See step 7 to run the real agents.
 
 ## 9. Tests
 
