@@ -1,5 +1,15 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnInit,
+  afterNextRender,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { errorMessage } from '@functions/errors';
@@ -20,6 +30,8 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Home implements OnInit {
+  private readonly _promptInput = viewChild<ElementRef<HTMLInputElement>>('promptInput');
+
   private readonly _trips = inject(TripService);
   private readonly _auth = inject(AuthService);
   private readonly _router = inject(Router);
@@ -32,6 +44,10 @@ export class Home implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly trips = signal<TripSummary[]>([]);
   protected readonly user = this._auth.user;
+
+  constructor() {
+    afterNextRender(() => this._promptInput()?.nativeElement.focus());
+  }
 
   protected readonly travelers = computed(() =>
     [...new Set(this.travelerInput().split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))],
