@@ -9,7 +9,7 @@ from pydantic.alias_generators import to_camel
 Id = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]{2,63}$")]
 LocalTime = Annotated[str, StringConstraints(pattern=r"^([01][0-9]|2[0-3]):[0-5][0-9]$")]
 
-AgentAction = Literal["Draft", "Questions", "Analyze", "Chat", "Price", "Finalize", "Nudge", "Retain"]
+AgentAction = Literal["Draft", "Questions", "Analyze", "Chat", "Price", "Finalize", "Nudge"]
 AgentStep = Literal[
     "Drafting",
     "Pricing",
@@ -19,9 +19,10 @@ AgentStep = Literal[
     "Finalizing",
     "Chatting",
     "Nudging",
-    "Retaining",
 ]
-PlanCategory = Literal["Flight", "Hotel", "Restaurant", "Activity"]
+# Same categories as DraftItem (requirements 3.4).
+PlanCategory = Literal["Flight", "Lodging", "Activity", "Dining", "Transit", "Free"]
+EnergyLevel = Literal["Low", "Medium", "High"]
 
 
 class Contract(BaseModel):
@@ -69,25 +70,30 @@ class DraftItinerary(Contract):
 
 class PlanOption(Contract):
     title: str = Field(min_length=1, max_length=200)
-    description: str | None = Field(default=None, max_length=600)
+    description: str | None = Field(default=None, max_length=600, description="One short sentence.")
     provider: str | None = Field(default=None, max_length=120, description="Airline, hotel brand, venue or tour operator.")
     location_name: str | None = Field(default=None, max_length=200)
-    price: Money | None = Field(default=None, description="Per person, from search results when available.")
-    url: str | None = Field(default=None, max_length=1000, description="Source link found by web search.")
+    estimated_cost_per_person: Money | None = None
+    source_url: str | None = Field(default=None, max_length=1000, description="Link found by web search. Never invented.")
+    price_fetched_at: dt.datetime | None = Field(
+        default=None, description="The fetchedAt time of the search result the price came from."
+    )
     start_time: LocalTime | None = None
     end_time: LocalTime | None = None
+    energy_level: EnergyLevel | None = None
 
 
 class PlanSlot(Contract):
     key: Id = Field(description="Stable kebab-case id, e.g. 'flight-outbound' or 'dinner-day-2'.")
     category: PlanCategory
     title: str = Field(min_length=1, max_length=120, description="What this slot is, e.g. 'Outbound flight'.")
-    day: int | None = Field(default=None, ge=1, le=21)
+    day: int | None = Field(default=None, ge=1, le=21, description="1-based trip day.")
+    date: dt.date | None = Field(default=None, description="Only when exact dates are known.")
     selected_index: int = Field(ge=0, description="Index into options of the recommended choice.")
     options: list[PlanOption] = Field(
         min_length=1,
         max_length=4,
-        description="The recommended option plus alternatives the group can switch to later.",
+        description="The recommended option plus the alternatives considered, which the group can switch to later.",
     )
 
 
@@ -111,32 +117,36 @@ class HistoryMessage(Contract):
 
 
 class NudgeContext(Contract):
-    slot_title: str = Field(max_length=120)
-    user_choice: str = Field(max_length=200)
-    majority_choice: str = Field(max_length=200)
-    user_choice_count: int = Field(ge=0)
-    majority_count: int = Field(ge=0)
-    total_responses: int = Field(ge=1)
-    nudge_number: int = Field(ge=1, le=2)
+    kind: Literal["Majority", "Stay"] = Field(
+        description="Majority: the user is in the minority on one item (4.4). Stay: the user asked to leave (4.5)."
+    )
+    slot_title: str | None = Field(default=None, max_length=120)
+    user_choice: str | None = Field(default=None, max_length=200)
+    majority_choice: str | None = Field(default=None, max_length=200)
+    user_choice_count: int | None = Field(default=None, ge=0)
+    majority_count: int | None = Field(default=None, ge=0)
+    total_responses: int | None = Field(default=None, ge=1)
+    nudge_number: int | None = Field(default=None, ge=1, le=2)
 
 
-class OptionTally(Contract):
+class ParticipantChoice(Contract):
+    participant: str = Field(max_length=40, description="Anonymous label such as 'traveler-2'.")
     option: str = Field(max_length=200)
-    count: int = Field(ge=0)
 
 
-class SlotTally(Contract):
+class SlotResponses(Contract):
     key: str = Field(max_length=64)
     title: str = Field(max_length=120)
     selected: str = Field(max_length=200)
-    tallies: list[OptionTally] = Field(max_length=4)
+    alternatives: list[str] = Field(max_length=4)
+    choices: list[ParticipantChoice] = Field(max_length=100)
 
 
 class Responses(Contract):
-    approved: int = Field(ge=0)
-    denied: int = Field(ge=0)
-    pending: int = Field(ge=0)
-    slots: list[SlotTally] = Field(max_length=40)
+    approved: list[str] = Field(max_length=100, description="Participants who approved the plan.")
+    denied: list[str] = Field(max_length=100)
+    pending: list[str] = Field(max_length=100)
+    slots: list[SlotResponses] = Field(max_length=40)
 
 
 class ChatReply(Contract):
@@ -147,11 +157,21 @@ class ChatReply(Contract):
         default=None,
         description="The complete updated plan when it changed, otherwise null. Always null when editing is not allowed.",
     )
+    destination: str | None = Field(
+        default=None, max_length=200, description="Start of a trip only: the destination, e.g. 'Lisbon, Portugal'."
+    )
+    trip_name: str | None = Field(
+        default=None, max_length=120, description="Start of a trip only: a short trip name, e.g. 'Lisbon long weekend'."
+    )
 
 
 class Question(Contract):
     slot_key: str = Field(max_length=64)
-    text: str = Field(min_length=1, max_length=300)
+    type: Literal["SingleChoice"] = Field(description="Travelers pick exactly one option for the item.")
+    prompt: str = Field(min_length=1, max_length=300)
+    options: list[Annotated[str, StringConstraints(min_length=1, max_length=200)]] = Field(
+        min_length=1, max_length=4, description="One label per plan option of the slot, in the same order."
+    )
 
 
 class QuestionSet(Contract):
@@ -160,15 +180,23 @@ class QuestionSet(Contract):
     questions: list[Question] = Field(max_length=40)
 
 
+class ItemAnalysis(Contract):
+    slot_key: str = Field(max_length=64)
+    approvers: list[str] = Field(max_length=100, description="Participants happy with the selected option.")
+    dissenters: list[str] = Field(max_length=100, description="Participants who chose something else.")
+    alternatives: list[str] = Field(max_length=4, description="Stored alternatives that would satisfy dissenters.")
+
+
 class Analysis(Contract):
     """Structured output of the plan evaluator."""
 
     works_for_all: bool
     summary: str = Field(min_length=1, max_length=1500)
+    items: list[ItemAnalysis] = Field(default_factory=list, max_length=40)
 
 
 class AgentMessage(Contract):
-    """Structured output for nudges and retention messages."""
+    """Structured output for nudges."""
 
     message: str = Field(min_length=1, max_length=1500)
 
@@ -182,7 +210,7 @@ class AgentInvocation(Contract):
         max_length=4000,
         description="Draft: the organizer's brain dump. Chat: the user's message. Untrusted input.",
     )
-    trip: TripContext | None = None
+    trip: TripContext | None = Field(default=None, description="Chat without a trip is the start of a new trip (3.1).")
     plan: TripPlan | None = None
     history: list[HistoryMessage] | None = Field(default=None, max_length=40)
     can_edit_plan: bool | None = None
@@ -199,5 +227,7 @@ class AgentEvent(Contract):
     draft: DraftItinerary | None = None
     reply: str | None = Field(default=None, max_length=4000)
     plan: TripPlan | None = None
+    destination: str | None = None
+    trip_name: str | None = None
     questions: list[Question] | None = None
     analysis: Analysis | None = None

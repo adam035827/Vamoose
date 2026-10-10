@@ -46,7 +46,13 @@ class Emitter:
     def result(self, output: ChatReply | QuestionSet | Analysis | AgentMessage) -> AgentEvent:
         match output:
             case ChatReply():
-                return self._next(type="Result", reply=output.reply, plan=output.plan)
+                return self._next(
+                    type="Result",
+                    reply=output.reply,
+                    plan=output.plan,
+                    destination=output.destination,
+                    trip_name=output.trip_name,
+                )
             case QuestionSet():
                 return self._next(type="Result", questions=output.questions)
             case Analysis():
@@ -68,7 +74,8 @@ class Route:
 
 
 ROUTES: dict[str, Route] = {
-    "Chat": Route("Chatting", "Thinking it over", ("message", "trip"), planner.chat, mock_data.mock_chat),
+    # Chat without a trip is the start of a new trip (requirements 3.1).
+    "Chat": Route("Chatting", "Thinking it over", ("message",), planner.chat, mock_data.mock_chat),
     "Questions": Route(
         "DesigningQuestions", "Writing questions for the group", ("trip", "plan"), planner.questions, mock_data.mock_questions
     ),
@@ -76,8 +83,8 @@ ROUTES: dict[str, Route] = {
         "Evaluating", "Checking whether the plan works for everyone", ("trip", "plan", "responses"),
         planner.analyze, mock_data.mock_analysis,
     ),
-    "Nudge": Route("Nudging", "Writing a note", ("trip", "plan", "nudge"), planner.nudge, mock_data.mock_nudge),
-    "Retain": Route("Retaining", "Writing a note", ("trip",), planner.retain, mock_data.mock_retain),
+    # Also used to persuade a traveler to stay when they try to leave (4.5).
+    "Nudge": Route("Nudging", "Writing a note", ("trip", "nudge"), planner.nudge, mock_data.mock_nudge),
 }
 
 
