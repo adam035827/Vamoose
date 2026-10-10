@@ -14,8 +14,9 @@ from .contracts import (
     ChatReply,
     Contract,
     QuestionSet,
+    TripPlan,
 )
-from .search import web_search
+from .search import SearchFn, SearchSession
 
 T = TypeVar("T", bound=Contract)
 
@@ -107,7 +108,9 @@ async def _run(model: Model, name: str, prompt: str, blocks: list[dict], output:
     return result.structured_output
 
 
-async def chat(invocation: AgentInvocation, model: Model, today: dt.date | None = None) -> ChatReply:
+async def chat(
+    invocation: AgentInvocation, model: Model, today: dt.date | None = None, search_fn: SearchFn | None = None
+) -> ChatReply:
     today = today or dt.date.today()
     if invocation.trip is None:
         # Start of a trip (3.1): a short blurb plus a clean destination; the app then asks who is going.
@@ -125,11 +128,32 @@ async def chat(invocation: AgentInvocation, model: Model, today: dt.date | None 
         blocks.append({"text": f"<nudge>\n{json.dumps(invocation.nudge.to_wire())}\n</nudge>"})
     blocks.append({"text": f"<message>\n{invocation.message}\n</message>"})
 
-    reply = await _run(model, "planner", CHAT_PROMPT, blocks, ChatReply, [web_search], CHAT_LIMITS)
+    search = SearchSession(search_fn) if search_fn else SearchSession()
+    reply = await _run(model, "planner", CHAT_PROMPT, blocks, ChatReply, [search.tool], CHAT_LIMITS)
     if not invocation.can_edit_plan:
         reply.plan = None
+    if reply.plan:
+        _ground_sources(reply.plan, search.sources, invocation.plan)
     reply.destination = reply.trip_name = None
     return reply
+
+
+def _ground_sources(plan: TripPlan, searched: dict[str, dt.datetime], current: TripPlan | None) -> None:
+    """Keeps a source link only if search returned it this turn or it was already in the plan."""
+    known = {
+        option.source_url: option.price_fetched_at
+        for slot in (current.slots if current else [])
+        for option in slot.options
+        if option.source_url
+    }
+    known.update(searched)
+    for slot in plan.slots:
+        for option in slot.options:
+            if option.source_url in known:
+                option.price_fetched_at = known[option.source_url]
+            else:
+                option.source_url = None
+                option.price_fetched_at = None
 
 
 async def questions(invocation: AgentInvocation, model: Model, today: dt.date | None = None) -> QuestionSet:

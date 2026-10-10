@@ -29,7 +29,7 @@ DRAFT_LIMITS = {"turns": 4, "output_tokens": 16000}
 
 def build_planner_model(settings: Settings) -> Model:
     config = {"model_id": settings.planner_model_id} if settings.planner_model_id else {}
-    return BedrockModel(region_name=settings.aws_region, max_tokens=8192, temperature=0.4, **config)
+    return BedrockModel(region_name=settings.aws_region, max_tokens=16000, temperature=0.4, **config)
 
 
 def build_drafter(model: Model) -> Agent:
