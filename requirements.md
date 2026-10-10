@@ -184,8 +184,8 @@ Trip lifecycle: **Planning** (primary user chats with the agent) → **Finalized
 | Dev network access | RDS security group allows port 1433 from developer IPs | VPN or bastion host preferred over public access. **TBD** |
 | AI agents | Strands Agents SDK (Amazon, open source), **Python 3.13** | Implemented in `Vamoose.Agents` (see 5.1). Strands is not available for .NET, so it runs as a separate agent service that `Vamoose.Api` calls over HTTP. Python 3.15 is not supported yet (missing dependency wheels). |
 | AI model | Anthropic Claude on Amazon Bedrock, region `us-east-2` | Default model is the Strands SDK default; override with `VAMOOSE_PLANNER_MODEL_ID`. Each developer uses their own IAM user with only Bedrock invoke permissions. |
-| Agent hosting | Amazon Bedrock AgentCore Runtime | The service already follows the AgentCore contract. AgentCore needs a linux/arm64 container image, built in AWS (for example CodeBuild), not on developer machines. |
-| Hosting | AWS | Other services **TBD** |
+| Agent hosting | Amazon Bedrock AgentCore Runtime | The service already follows the AgentCore contract. Deployed with the AgentCore CLI (`@aws/agentcore`). The default `CodeZip` build packages the code to S3 and needs no Docker or container image; the `Container` build type is optional. |
+| Hosting | AWS | Frontend and API run on a single Ubuntu EC2 instance: Nginx serves the Angular build and proxies `/api/*` to the .NET API on `127.0.0.1:5000`. The database is RDS and the agent service is on AgentCore (see above). Other services **TBD** |
 | Dev platforms | Windows and macOS | Docker not used. The agent service runs locally in a Python virtual environment. |
 
 ### Known tradeoffs of the database choice
@@ -306,7 +306,7 @@ Every agent feature must meet all of these before it counts as done:
 
 ### Technical (decide later)
 
-- Which AWS services will host the frontend and API?
+- ~~Which AWS services will host the frontend and API?~~ Decided: one EC2 instance running Nginx and the .NET API (5).
 - How will developers reach the RDS instance: public access restricted by IP, VPN, or bastion host?
 - ~~Where will the Strands agent service run?~~ Decided: Bedrock AgentCore Runtime (5).
 - ~~Python or TypeScript for the agent service, and which model provider?~~ Decided: Python 3.13, Claude on Amazon Bedrock (5).

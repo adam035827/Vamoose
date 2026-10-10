@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.agentcore.aws.dev/v1/agentcore.json",
+  "name": "VamooseAgents",
+  "version": 1,
+  "managedBy": "CDK",
+  "tags": {
+    "agentcore:created-by": "agentcore-cli",
+    "agentcore:project-name": "VamooseAgents"
+  },
+  "runtimes": [
+    {
+      "name": "VamooseAgents",
+      "build": "CodeZip",
+      "entrypoint": "main.py",
+      "codeLocation": "Vamoose.Agents/",
+      "runtimeVersion": "PYTHON_3_13",
+      "networkMode": "PUBLIC",
+      "protocol": "HTTP",
+      "envVars": [
+        { "name": "AWS_REGION", "value": "us-east-2" },
+        { "name": "VAMOOSE_MOCK_AGENTS", "value": "1" }
+      ]
+    }
+  ],
+  "memories": [],
+  "knowledgeBases": [],
+  "credentials": [],
+  "evaluators": [],
+  "onlineEvalConfigs": [],
+  "agentCoreGateways": [],
+  "policyEngines": [],
+  "configBundles": [],
+  "abTests": [],
+  "harnesses": [],
+  "datasets": [],
+  "capacityProviders": [],
+  "payments": []
+}
