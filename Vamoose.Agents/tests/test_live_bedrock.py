@@ -1,3 +1,4 @@
+import datetime as dt
 import os
 
 import pytest
@@ -24,3 +25,11 @@ async def test_drafter_against_real_bedrock():
     assert isinstance(draft, DraftItinerary)
     assert "lisbon" in draft.destination.lower()
     assert any("sintra" in item.title.lower() for item in draft.items)
+
+
+async def test_drafter_schedules_partial_dates_in_the_future():
+    model = build_planner_model(Settings.from_env())
+
+    draft = await draft_itinerary("Nashville, 3 days in March, 5 friends, live music and BBQ.", model)
+
+    assert draft.start_date is not None and draft.start_date > dt.date.today()
