@@ -51,6 +51,9 @@ builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TripAccess>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<TripService>();
+builder.Services.AddScoped<PlanService>();
+builder.Services.AddScoped<AgreementService>();
+builder.Services.AddScoped<LifecycleService>();
 
 builder.Services.AddHttpClient<IAgentClient, HttpAgentClient>(client =>
 {
