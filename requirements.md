@@ -8,7 +8,7 @@ Find the overlap. Go.
 
 ## 1. Overview
 
-Vamoose is a group trip planning app. A user creates a trip and plans it by chatting with the Vamoose AI agent, which searches the internet and offers options. Once the trip is finalized, the creator sends it to the other travelers.
+Vamoose is a group trip planning app. A user creates a trip and plans it by chatting with the Vamoose AI agent, which searches the internet and offers options. The group can be looped in with poll style questions, which they have 24 hr to respond too be considered. Once the trip is finalized, the creator sends it to the other travelers.
 
 _Part 1 covers trip creation, planning and sharing (section 3). Part 2 covers group agreement, exiting, cancelling and locking (section 4)._
 
