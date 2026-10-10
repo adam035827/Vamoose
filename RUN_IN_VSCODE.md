@@ -24,15 +24,21 @@ Recommended VS Code extensions: **C# Dev Kit**, **Angular Language Service**, **
 
 Open the repo root with **File > Open Folder...**, then open a terminal (`` Ctrl+` ``).
 
-Agent service:
+Agent service, **Windows (PowerShell, the VS Code default)**:
+
+```powershell
+cd Vamoose.Agents
+python -m venv .venv
+.venv\Scripts\python -m pip install -e ".[dev]"
+```
+
+**Mac (zsh/bash):**
 
 ```bash
 cd Vamoose.Agents
-python -m venv .venv
-.venv/Scripts/python -m pip install -e ".[dev]"
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
 ```
-
-On Mac, use `.venv/bin/python` instead of `.venv/Scripts/python`.
 
 Web app:
 
@@ -45,12 +51,21 @@ npm install
 
 Mock mode returns canned answers, so the whole app works without AWS:
 
-```bash
+**Windows (PowerShell):**
+
+```powershell
 cd Vamoose.Agents
-VAMOOSE_MOCK_AGENTS=1 .venv/Scripts/python -m vamoose_agents.app
+$env:VAMOOSE_MOCK_AGENTS='1'; .venv\Scripts\python -m vamoose_agents.app
 ```
 
-In PowerShell: `$env:VAMOOSE_MOCK_AGENTS='1'; .venv\Scripts\python -m vamoose_agents.app`
+**Mac (zsh/bash):**
+
+```bash
+cd Vamoose.Agents
+VAMOOSE_MOCK_AGENTS=1 .venv/bin/python -m vamoose_agents.app
+```
+
+The service listens on http://localhost:8080 (check http://localhost:8080/ping). In PowerShell, `$env:` settings last for that terminal, so open a new terminal or run `$env:VAMOOSE_MOCK_AGENTS='0'` to turn mock mode off.
 
 To use real Claude on Amazon Bedrock with live web search, set up AWS credentials with Bedrock access (for example `AWS_PROFILE`), and start it with `VAMOOSE_MOCK_AGENTS=0`. See `Vamoose.Agents/.env.example`.
 
@@ -89,10 +104,12 @@ dotnet user-secrets set "ConnectionStrings:Vamoose" "Server=<host>,1433;Database
 
 Agent service (live Bedrock tests are skipped unless `VAMOOSE_LIVE_TESTS=1`):
 
-```bash
+```powershell
 cd Vamoose.Agents
-.venv/Scripts/python -m pytest
+.venv\Scripts\python -m pytest
 ```
+
+On Mac: `.venv/bin/python -m pytest`
 
 API (uses an in-memory database and a fake agent, so no SQL Server or AWS needed):
 
