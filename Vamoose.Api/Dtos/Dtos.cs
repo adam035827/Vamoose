@@ -2,16 +2,24 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Vamoose.Api.Dtos;
 
-public record LoginRequest([Required, EmailAddress, MaxLength(254)] string Email);
+public record MagicLinkRequest([Required, MaxLength(64)] string Token);
 
 public record UserDto(Guid Id, string Email);
 
-public record CreateTripRequest(
-    [Required, MaxLength(120)] string Name,
+public record MagicLinkResponse(UserDto User, Guid TripId);
+
+public record StartIntroRequest([Required, MinLength(1), MaxLength(500)] string Message);
+
+public record StartIntroResponse(string Reply, string Destination, string TripName);
+
+public record StartTripRequest(
+    [Required, MinLength(1), MaxLength(500)] string Prompt,
     [Required, MaxLength(200)] string Destination,
-    DateOnly? StartDate,
-    DateOnly? EndDate,
-    [MaxLength(2000)] string? Notes);
+    [Required, MaxLength(120)] string TripName,
+    [Required, EmailAddress, MaxLength(254)] string OrganizerEmail,
+    [MaxLength(30)] List<string> TravelerEmails);
+
+public record StartTripResponse(Guid TripId, UserDto User);
 
 public record AddMemberRequest([Required, EmailAddress, MaxLength(254)] string Email);
 
@@ -42,11 +50,13 @@ public record OptionDto(
     string? Description,
     string? Provider,
     string? Location,
-    decimal? Price,
+    decimal? EstimatedCost,
     string? Currency,
-    string? Url,
+    string? SourceUrl,
+    DateTimeOffset? PriceFetchedAt,
     string? StartTime,
     string? EndTime,
+    string? EnergyLevel,
     int Votes);
 
 public record PlanItemDto(
@@ -55,6 +65,7 @@ public record PlanItemDto(
     string Category,
     string Title,
     int? Day,
+    DateOnly? Date,
     Guid? SelectedOptionId,
     string? Question,
     Guid? MyChoiceOptionId,
@@ -94,6 +105,7 @@ public record TripDetailDto(
     string PrimaryEmail,
     string? MyApproval,
     bool Consensus,
+    DateTimeOffset? ResponseDeadline,
     List<MemberDto> Members,
     List<PlanItemDto> Items,
     List<ChangeRequestDto> ChangeRequests,

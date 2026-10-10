@@ -213,6 +213,9 @@ namespace Vamoose.Api.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<DateOnly?>("Date")
+                        .HasColumnType("date");
+
                     b.Property<int?>("Day")
                         .HasColumnType("int");
 
@@ -264,6 +267,14 @@ namespace Vamoose.Api.Data.Migrations
                         .HasMaxLength(5)
                         .HasColumnType("nvarchar(5)");
 
+                    b.Property<string>("EnergyLevel")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal?>("EstimatedCost")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
                     b.Property<string>("Location")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -271,9 +282,8 @@ namespace Vamoose.Api.Data.Migrations
                     b.Property<Guid>("PlanItemId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal?>("Price")
-                        .HasPrecision(12, 2)
-                        .HasColumnType("decimal(12,2)");
+                    b.Property<DateTimeOffset?>("PriceFetchedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Provider")
                         .HasMaxLength(120)
@@ -281,6 +291,10 @@ namespace Vamoose.Api.Data.Migrations
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
+
+                    b.Property<string>("SourceUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("StartTime")
                         .HasMaxLength(5)
@@ -290,10 +304,6 @@ namespace Vamoose.Api.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Url")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
 
                     b.HasKey("Id");
 
@@ -307,6 +317,9 @@ namespace Vamoose.Api.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("ClosedVersion")
+                        .HasColumnType("int");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -333,6 +346,9 @@ namespace Vamoose.Api.Data.Migrations
 
                     b.Property<Guid>("PrimaryUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("ResponseDeadline")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("SentAt")
                         .HasColumnType("datetimeoffset");
@@ -364,10 +380,18 @@ namespace Vamoose.Api.Data.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccessToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<DateTimeOffset>("AddedAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<DateTimeOffset?>("ExitedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("LinkSentAt")
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Role")
@@ -381,6 +405,9 @@ namespace Vamoose.Api.Data.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.HasKey("TripId", "UserId");
+
+                    b.HasIndex("AccessToken")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
 

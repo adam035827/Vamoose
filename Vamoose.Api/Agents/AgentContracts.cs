@@ -8,7 +8,12 @@ public static class AgentActions
     public const string Questions = "Questions";
     public const string Analyze = "Analyze";
     public const string Nudge = "Nudge";
-    public const string Retain = "Retain";
+}
+
+public static class NudgeKinds
+{
+    public const string Majority = "Majority";
+    public const string Stay = "Stay";
 }
 
 public record AgentMoney(decimal Amount, string Currency);
@@ -18,16 +23,19 @@ public record AgentPlanOption(
     string? Description = null,
     string? Provider = null,
     string? LocationName = null,
-    AgentMoney? Price = null,
-    string? Url = null,
+    AgentMoney? EstimatedCostPerPerson = null,
+    string? SourceUrl = null,
+    DateTimeOffset? PriceFetchedAt = null,
     string? StartTime = null,
-    string? EndTime = null);
+    string? EndTime = null,
+    string? EnergyLevel = null);
 
 public record AgentPlanSlot(
     string Key,
     string Category,
     string Title,
     int? Day,
+    DateOnly? Date,
     int SelectedIndex,
     List<AgentPlanOption> Options);
 
@@ -45,19 +53,20 @@ public record AgentTripContext(
 public record AgentHistoryMessage(string Role, string Text);
 
 public record AgentNudgeContext(
-    string SlotTitle,
-    string UserChoice,
-    string MajorityChoice,
-    int UserChoiceCount,
-    int MajorityCount,
-    int TotalResponses,
-    int NudgeNumber);
+    string Kind,
+    string? SlotTitle = null,
+    string? UserChoice = null,
+    string? MajorityChoice = null,
+    int? UserChoiceCount = null,
+    int? MajorityCount = null,
+    int? TotalResponses = null,
+    int? NudgeNumber = null);
 
-public record AgentOptionTally(string Option, int Count);
+public record AgentParticipantChoice(string Participant, string Option);
 
-public record AgentSlotTally(string Key, string Title, string Selected, List<AgentOptionTally> Tallies);
+public record AgentSlotResponses(string Key, string Title, string Selected, List<string> Alternatives, List<AgentParticipantChoice> Choices);
 
-public record AgentResponses(int Approved, int Denied, int Pending, List<AgentSlotTally> Slots);
+public record AgentResponses(List<string> Approved, List<string> Denied, List<string> Pending, List<AgentSlotResponses> Slots);
 
 public record AgentInvocation(
     string RequestId,
@@ -70,9 +79,11 @@ public record AgentInvocation(
     AgentNudgeContext? Nudge = null,
     AgentResponses? Responses = null);
 
-public record AgentQuestion(string SlotKey, string Text);
+public record AgentQuestion(string SlotKey, string Type, string Prompt, List<string> Options);
 
-public record AgentAnalysis(bool WorksForAll, string Summary);
+public record AgentItemAnalysis(string SlotKey, List<string> Approvers, List<string> Dissenters, List<string> Alternatives);
+
+public record AgentAnalysis(bool WorksForAll, string Summary, List<AgentItemAnalysis>? Items);
 
 public record AgentEvent(
     string RequestId,
@@ -82,7 +93,15 @@ public record AgentEvent(
     string? Message,
     string? Reply,
     AgentTripPlan? Plan,
+    string? Destination,
+    string? TripName,
     List<AgentQuestion>? Questions,
     AgentAnalysis? Analysis);
 
-public record AgentResult(string? Reply, AgentTripPlan? Plan, List<AgentQuestion>? Questions, AgentAnalysis? Analysis);
+public record AgentResult(
+    string? Reply,
+    AgentTripPlan? Plan,
+    List<AgentQuestion>? Questions,
+    AgentAnalysis? Analysis,
+    string? Destination = null,
+    string? TripName = null);

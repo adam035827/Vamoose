@@ -35,9 +35,10 @@ public class LifecycleService(
         {
             var result = await agent.InvokeAsync(new AgentInvocation(
                 AgentRequests.NewId(),
-                AgentActions.Retain,
+                AgentActions.Nudge,
                 Trip: AgentMapper.ToContext(ctx.Trip),
-                Plan: ctx.Trip.Items.Count > 0 ? AgentMapper.ToPlan(ctx.Trip) : null), ct);
+                Plan: ctx.Trip.Items.Count > 0 ? AgentMapper.ToPlan(ctx.Trip) : null,
+                Nudge: new AgentNudgeContext(NudgeKinds.Stay)), ct);
             message = result.Reply ?? DefaultRetain(ctx.Trip);
         }
         catch (AgentUnavailableException ex)

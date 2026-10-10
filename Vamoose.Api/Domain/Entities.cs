@@ -6,7 +6,8 @@ public enum MemberRole { Primary, Traveler }
 
 public enum MemberStatus { Active, Exited }
 
-public enum PlanCategory { Flight, Hotel, Restaurant, Activity }
+// Same categories the agent's DraftItem uses (requirements 3.4).
+public enum PlanCategory { Flight, Lodging, Activity, Dining, Transit, Free }
 
 public enum ChatRole { User, Agent }
 
@@ -36,6 +37,12 @@ public class Trip
     public int PlanVersion { get; set; } = 1;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? SentAt { get; set; }
+
+    // Travelers have 24 hours per plan version to respond and be considered (requirements 1).
+    public DateTimeOffset? ResponseDeadline { get; set; }
+
+    // Plan version whose response window has been closed and evaluated.
+    public int? ClosedVersion { get; set; }
     public List<TripMember> Members { get; set; } = [];
     public List<PlanItem> Items { get; set; } = [];
 }
@@ -49,6 +56,10 @@ public class TripMember
     public MemberStatus Status { get; set; } = MemberStatus.Active;
     public DateTimeOffset AddedAt { get; set; }
     public DateTimeOffset? ExitedAt { get; set; }
+
+    // Secret in this member's magic link, the only access needed for the trip (requirements 3.2).
+    public required string AccessToken { get; set; }
+    public DateTimeOffset? LinkSentAt { get; set; }
 }
 
 public class PlanItem
@@ -59,6 +70,7 @@ public class PlanItem
     public PlanCategory Category { get; set; }
     public required string Title { get; set; }
     public int? Day { get; set; }
+    public DateOnly? Date { get; set; }
     public int SortOrder { get; set; }
     public Guid? SelectedOptionId { get; set; }
 
@@ -75,11 +87,13 @@ public class PlanOption
     public string? Description { get; set; }
     public string? Provider { get; set; }
     public string? Location { get; set; }
-    public decimal? Price { get; set; }
+    public decimal? EstimatedCost { get; set; }
     public string? Currency { get; set; }
-    public string? Url { get; set; }
+    public string? SourceUrl { get; set; }
+    public DateTimeOffset? PriceFetchedAt { get; set; }
     public string? StartTime { get; set; }
     public string? EndTime { get; set; }
+    public string? EnergyLevel { get; set; }
     public int SortOrder { get; set; }
 }
 

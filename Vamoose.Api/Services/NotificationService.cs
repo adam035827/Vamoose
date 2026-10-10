@@ -24,6 +24,7 @@ public static class NotificationTypes
     public const string Tie = "Tie";
     public const string Consensus = "Consensus";
     public const string Analysis = "Analysis";
+    public const string WindowClosed = "WindowClosed";
 }
 
 // Users join a group named after their user id; the server pushes notifications and trip refresh signals.

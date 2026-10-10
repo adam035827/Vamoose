@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Vamoose.Api.Domain;
 
 namespace Vamoose.Api.Data;
@@ -42,6 +43,8 @@ public class VamooseDbContext(DbContextOptions<VamooseDbContext> options) : DbCo
             e.HasKey(x => new { x.TripId, x.UserId });
             e.Property(x => x.Role).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.AccessToken).HasMaxLength(64);
+            e.HasIndex(x => x.AccessToken).IsUnique();
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -60,9 +63,10 @@ public class VamooseDbContext(DbContextOptions<VamooseDbContext> options) : DbCo
             e.Property(x => x.Description).HasMaxLength(600);
             e.Property(x => x.Provider).HasMaxLength(120);
             e.Property(x => x.Location).HasMaxLength(200);
-            e.Property(x => x.Price).HasPrecision(12, 2);
+            e.Property(x => x.EstimatedCost).HasPrecision(12, 2);
             e.Property(x => x.Currency).HasMaxLength(3);
-            e.Property(x => x.Url).HasMaxLength(1000);
+            e.Property(x => x.SourceUrl).HasMaxLength(1000);
+            e.Property(x => x.EnergyLevel).HasMaxLength(10);
             e.Property(x => x.StartTime).HasMaxLength(5);
             e.Property(x => x.EndTime).HasMaxLength(5);
         });
@@ -104,5 +108,15 @@ public class VamooseDbContext(DbContextOptions<VamooseDbContext> options) : DbCo
             e.Property(x => x.Message).HasMaxLength(500);
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
         });
+
+        // SQLite (used by the API tests) can't order or compare DateTimeOffset, so store it as a number there.
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+        {
+            foreach (var property in b.Model.GetEntityTypes().SelectMany(t => t.GetProperties())
+                         .Where(p => p.ClrType == typeof(DateTimeOffset) || p.ClrType == typeof(DateTimeOffset?)))
+            {
+                property.SetValueConverter(new DateTimeOffsetToBinaryConverter());
+            }
+        }
     }
 }

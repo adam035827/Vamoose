@@ -17,13 +17,6 @@ public class TripsController(
     [HttpGet]
     public Task<IReadOnlyList<TripSummaryDto>> List(CancellationToken ct) => trips.ListAsync(ct);
 
-    [HttpPost]
-    public async Task<ActionResult<TripDetailDto>> Create(CreateTripRequest request, CancellationToken ct)
-    {
-        var id = await trips.CreateAsync(request, ct);
-        return CreatedAtAction(nameof(Get), new { id }, await trips.GetAsync(id, ct));
-    }
-
     [HttpGet("{id:guid}")]
     public Task<TripDetailDto> Get(Guid id, CancellationToken ct) => trips.GetAsync(id, ct);
 

@@ -12,9 +12,11 @@ public class AgreementService(
     VamooseDbContext db,
     TripAccess access,
     IAgentClient agent,
+    MagicLinkService magicLinks,
     NotificationService notifications,
     ILogger<AgreementService> logger)
 {
+    public static readonly TimeSpan ResponseWindow = TimeSpan.FromHours(24);
     private const int MaxNudges = 2;
 
     private record Tally(PlanItem Item, Dictionary<Guid, int> Counts, int Answered)
@@ -22,6 +24,16 @@ public class AgreementService(
         public (Guid OptionId, int Count) Top => Counts.OrderByDescending(c => c.Value).Select(c => (c.Key, c.Value)).FirstOrDefault();
         public bool IsTie => Counts.Count >= 2 && Counts.Values.OrderDescending().Take(2).Distinct().Count() == 1;
         public bool HasMajority => Top.Count * 2 > Answered;
+    }
+
+    public static bool WindowOpen(Trip trip) =>
+        trip.Status == TripStatus.Agreement && (trip.ResponseDeadline is not { } deadline || DateTimeOffset.UtcNow <= deadline);
+
+    // Everyone must approve; once the 24-hour window closes, only those who responded are considered.
+    public static bool HasConsensus(Trip trip, IReadOnlySet<Guid> activeIds, IReadOnlyDictionary<Guid, bool> approvals)
+    {
+        var considered = WindowOpen(trip) ? activeIds : activeIds.Where(approvals.ContainsKey).ToHashSet();
+        return considered.Count > 0 && considered.All(id => approvals.TryGetValue(id, out var ok) && ok);
     }
 
     // Finalizing and sending are the same action (requirements 3.5).
@@ -43,19 +55,22 @@ public class AgreementService(
         var resend = trip.SentAt != null;
         trip.Status = TripStatus.Agreement;
         trip.SentAt = DateTimeOffset.UtcNow;
-        if (resend)
-        {
-            await ResetApprovalsAsync(trip, ct);
-        }
+        await ResetApprovalsAsync(trip, ct);
         await GenerateQuestionsAsync(trip, ct);
+
+        // Each traveler's magic link is their only way in (requirements 3.2).
+        foreach (var member in ctx.ActiveMembers.Where(m => m.Role == MemberRole.Traveler && m.LinkSentAt == null))
+        {
+            await magicLinks.SendAsync(trip, member, ct);
+        }
 
         notifications.Notify(
             ctx.OtherActiveMemberIds,
             tripId,
             NotificationTypes.TripSent,
             resend
-                ? $"{trip.PrimaryUser.Email} sent \"{trip.Name}\" again. Please review the plan."
-                : $"{trip.PrimaryUser.Email} sent you the trip \"{trip.Name}\". Answer a few questions about the plan.");
+                ? $"{trip.PrimaryUser.Email} sent \"{trip.Name}\" again. You have 24 hours to review the plan."
+                : $"{trip.PrimaryUser.Email} sent you the trip \"{trip.Name}\". You have 24 hours to answer a few questions.");
         await db.SaveChangesAsync(ct);
         await notifications.FlushAsync(ct);
     }
@@ -83,7 +98,7 @@ public class AgreementService(
             ctx.OtherActiveMemberIds,
             trip.Id,
             NotificationTypes.TripEdited,
-            $"{what} on \"{trip.Name}\". Please review and approve the plan again.");
+            $"{what} on \"{trip.Name}\". Please review and approve the plan again within 24 hours.");
     }
 
     public async Task RespondAsync(Guid tripId, IReadOnlyList<ChoiceDto> choices, CancellationToken ct)
@@ -92,9 +107,13 @@ public class AgreementService(
         TripAccess.RequireActive(ctx);
         TripAccess.RequireStatus(ctx, TripStatus.Agreement);
         var trip = ctx.Trip;
+        if (!WindowOpen(trip))
+        {
+            throw new ConflictException("The 24-hour response window for this plan has closed.");
+        }
+
         var me = ctx.Me.UserId;
         var now = DateTimeOffset.UtcNow;
-
         var byItem = choices.GroupBy(c => c.ItemId).ToDictionary(g => g.Key, g => g.Last().OptionId);
         foreach (var (itemId, optionId) in byItem)
         {
@@ -214,12 +233,37 @@ public class AgreementService(
 
         await ResetApprovalsAsync(ctx.Trip, ct);
         notifications.Notify(ctx.OtherActiveMemberIds, ctx.Trip.Id, NotificationTypes.ChangeApproved,
-            $"Plan changed on \"{ctx.Trip.Name}\": {item.Title} is now {to} (was {from}). Please approve or deny the updated plan.");
+            $"Plan changed on \"{ctx.Trip.Name}\": {item.Title} is now {to} (was {from}). Please approve or deny the updated plan within 24 hours.");
         await db.SaveChangesAsync(ct);
         await notifications.FlushAsync(ct);
     }
 
-    // Majority nudges, ties for the primary user, analysis when everyone has answered, consensus alert.
+    // Closes response windows that have run out and evaluates them with whoever responded in time.
+    public async Task CloseExpiredWindowsAsync(CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var due = await db.Trips
+            .Where(t => t.Status == TripStatus.Agreement && t.ResponseDeadline < now && (t.ClosedVersion == null || t.ClosedVersion != t.PlanVersion))
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+
+        foreach (var tripId in due)
+        {
+            var ctx = await access.LoadForSystemAsync(tripId, ct);
+            var trip = ctx.Trip;
+            trip.ClosedVersion = trip.PlanVersion;
+
+            var activeIds = ctx.ActiveMemberIds.ToHashSet();
+            var responded = await db.PlanApprovals.CountAsync(a => a.TripId == tripId && a.PlanVersion == trip.PlanVersion && activeIds.Contains(a.UserId), ct);
+            notifications.Notify(trip.PrimaryUserId, tripId, NotificationTypes.WindowClosed,
+                $"The 24-hour response window for \"{trip.Name}\" closed. {responded} of {activeIds.Count} responded.");
+            await EvaluateAsync(ctx, ct);
+            await db.SaveChangesAsync(ct);
+            await notifications.FlushAsync(ct);
+        }
+    }
+
+    // Majority nudges, ties for the primary user, analysis when responses are in, consensus alert.
     public async Task EvaluateAsync(TripContext ctx, CancellationToken ct)
     {
         var trip = ctx.Trip;
@@ -232,6 +276,7 @@ public class AgreementService(
         var tallies = await TallyAsync(trip, activeIds, ct);
         var choices = await db.ItemChoices.Where(c => c.TripId == trip.Id && activeIds.Contains(c.UserId)).ToListAsync(ct);
         var nudges = await db.Nudges.Where(n => n.TripId == trip.Id).ToListAsync(ct);
+        var windowOpen = WindowOpen(trip);
 
         foreach (var tally in tallies.Where(t => t.Answered >= 2))
         {
@@ -241,12 +286,13 @@ public class AgreementService(
                     $"It's a tie on {tally.Item.Title} for \"{trip.Name}\". You have the deciding vote.", ct);
                 continue;
             }
-            if (!tally.HasMajority)
+            if (!tally.HasMajority || !windowOpen)
             {
                 continue;
             }
 
             var (majorityId, majorityCount) = tally.Top;
+
             // The primary user has the final word, so only travelers are nudged.
             foreach (var choice in choices.Where(c => c.PlanItemId == tally.Item.Id && c.OptionId != majorityId && c.UserId != trip.PrimaryUserId))
             {
@@ -259,26 +305,27 @@ public class AgreementService(
             }
         }
 
-        var approvals = await db.PlanApprovals.Where(a => a.TripId == trip.Id && a.PlanVersion == trip.PlanVersion).ToListAsync(ct);
-        var responded = approvals.Where(a => activeIds.Contains(a.UserId)).ToList();
-        if (responded.Count < activeIds.Count)
+        var approvals = await db.PlanApprovals
+            .Where(a => a.TripId == trip.Id && a.PlanVersion == trip.PlanVersion && activeIds.Contains(a.UserId))
+            .ToDictionaryAsync(a => a.UserId, a => a.Approved, ct);
+        if (windowOpen && approvals.Count < activeIds.Count)
         {
             return;
         }
 
-        if (responded.All(a => a.Approved))
+        if (HasConsensus(trip, activeIds, approvals))
         {
             await NotifyOnceAsync(trip.PrimaryUserId, trip.Id, NotificationTypes.Consensus,
-                $"Everyone approved the plan for \"{trip.Name}\". You can lock the trip.", ct);
+                $"Everyone who responded approved the plan for \"{trip.Name}\". You can lock the trip.", ct);
         }
-        await AnalyzeAsync(trip, tallies, responded, activeIds.Count, ct);
+        await AnalyzeAsync(ctx, tallies, choices, approvals, ct);
     }
 
     // Returns context for the second nudge if the user is still in the minority after the first.
     public async Task<AgentNudgeContext?> TakeSecondNudgeAsync(TripContext ctx, CancellationToken ct)
     {
         var trip = ctx.Trip;
-        if (trip.Status != TripStatus.Agreement)
+        if (!WindowOpen(trip))
         {
             return null;
         }
@@ -345,17 +392,24 @@ public class AgreementService(
             $"Most of the group chose {context.MajorityChoice} for {tally.Item.Title} on \"{trip.Name}\". The Vamoose agent left you a note.");
     }
 
-    private async Task AnalyzeAsync(Trip trip, List<Tally> tallies, List<PlanApproval> responded, int activeCount, CancellationToken ct)
+    // Travelers are sent to the model as anonymous labels and mapped back to emails here.
+    private async Task AnalyzeAsync(TripContext ctx, List<Tally> tallies, List<ItemChoice> choices, Dictionary<Guid, bool> approvals, CancellationToken ct)
     {
+        var trip = ctx.Trip;
+        var active = ctx.ActiveMembers.ToList();
+        var labels = active.Select((m, i) => (m, Label: $"traveler-{i + 1}")).ToDictionary(x => x.m.UserId, x => x.Label);
+        var emails = active.ToDictionary(m => labels[m.UserId], m => m.User.Email);
+
         var responses = new AgentResponses(
-            responded.Count(a => a.Approved),
-            responded.Count(a => !a.Approved),
-            activeCount - responded.Count,
-            [.. tallies.Select(t => new AgentSlotTally(
+            [.. approvals.Where(a => a.Value).Select(a => labels[a.Key])],
+            [.. approvals.Where(a => !a.Value).Select(a => labels[a.Key])],
+            [.. active.Where(m => !approvals.ContainsKey(m.UserId)).Select(m => labels[m.UserId])],
+            [.. tallies.Select(t => new AgentSlotResponses(
                 t.Item.Key,
                 t.Item.Title,
                 t.Item.Options.FirstOrDefault(o => o.Id == t.Item.SelectedOptionId)?.Title ?? "",
-                [.. t.Item.Options.Select(o => new AgentOptionTally(o.Title, t.Counts.GetValueOrDefault(o.Id)))]))]);
+                [.. t.Item.Options.Where(o => o.Id != t.Item.SelectedOptionId).Select(o => o.Title)],
+                [.. choices.Where(c => c.PlanItemId == t.Item.Id).Select(c => new AgentParticipantChoice(labels[c.UserId], t.Item.Options.First(o => o.Id == c.OptionId).Title))]))]);
 
         AgentResult result;
         try
@@ -373,19 +427,30 @@ public class AgreementService(
             return;
         }
 
+        string Names(IEnumerable<string> participants) =>
+            string.Join(", ", participants.Select(p => emails.GetValueOrDefault(p)).OfType<string>());
+        var lines = (analysis.Items ?? [])
+            .Where(i => i.Dissenters.Count > 0)
+            .Select(i =>
+            {
+                var title = trip.Items.FirstOrDefault(x => x.Key == i.SlotKey)?.Title ?? i.SlotKey;
+                var alternatives = i.Alternatives.Count > 0 ? $" Alternatives that fit: {string.Join(", ", i.Alternatives)}." : "";
+                return $"• {title}: {i.Approvers.Count} approve; {Names(i.Dissenters)} prefer something else.{alternatives}";
+            });
+
         db.ChatMessages.Add(new ChatMessage
         {
             Id = Guid.NewGuid(),
             TripId = trip.Id,
             UserId = trip.PrimaryUserId,
             Role = ChatRole.Agent,
-            Content = $"Everyone has responded. {analysis.Summary}",
+            Content = string.Join("\n", new[] { $"Responses are in. {analysis.Summary}" }.Concat(lines)),
             CreatedAt = DateTimeOffset.UtcNow,
         });
         notifications.Notify(trip.PrimaryUserId, trip.Id, NotificationTypes.Analysis,
             analysis.WorksForAll
-                ? $"Everyone has responded to \"{trip.Name}\" and the plan works for all."
-                : $"Everyone has responded to \"{trip.Name}\", but the plan doesn't work for everyone yet. See the agent's summary.");
+                ? $"Responses are in for \"{trip.Name}\" and the plan works for all."
+                : $"Responses are in for \"{trip.Name}\", but the plan doesn't work for everyone yet. See the agent's summary.");
     }
 
     private async Task GenerateQuestionsAsync(Trip trip, CancellationToken ct)
@@ -394,10 +459,17 @@ public class AgreementService(
         {
             var result = await agent.InvokeAsync(new AgentInvocation(
                 AgentRequests.NewId(), AgentActions.Questions, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip)), ct);
-            var byKey = (result.Questions ?? []).GroupBy(q => q.SlotKey).ToDictionary(g => g.Key, g => g.First().Text);
+
+            // Questions are checked against their fixed structure before use (requirements 4.1).
+            var byKey = (result.Questions ?? [])
+                .Where(q => q.Type == "SingleChoice" && !string.IsNullOrWhiteSpace(q.Prompt))
+                .GroupBy(q => q.SlotKey)
+                .ToDictionary(g => g.Key, g => g.First());
             foreach (var item in trip.Items)
             {
-                item.Question = byKey.TryGetValue(item.Key, out var text) ? text[..Math.Min(text.Length, 400)] : DefaultQuestion(item);
+                item.Question = byKey.TryGetValue(item.Key, out var q) && q.Options.Count == item.Options.Count
+                    ? q.Prompt[..Math.Min(q.Prompt.Length, 400)]
+                    : DefaultQuestion(item);
             }
         }
         catch (AgentUnavailableException ex)
@@ -418,6 +490,7 @@ public class AgreementService(
     }
 
     private static AgentNudgeContext BuildNudge(Tally tally, Guid userOption, Guid majorityOption, int majorityCount, int number) => new(
+        NudgeKinds.Majority,
         tally.Item.Title,
         tally.Item.Options.First(o => o.Id == userOption).Title,
         tally.Item.Options.First(o => o.Id == majorityOption).Title,
@@ -426,9 +499,14 @@ public class AgreementService(
         tally.Answered,
         number);
 
+    // Every new plan version starts a fresh 24-hour response window.
     private async Task ResetApprovalsAsync(Trip trip, CancellationToken ct)
     {
         trip.PlanVersion++;
+        if (trip.Status == TripStatus.Agreement)
+        {
+            trip.ResponseDeadline = DateTimeOffset.UtcNow.Add(ResponseWindow);
+        }
         await db.PlanApprovals.Where(a => a.TripId == trip.Id).ExecuteDeleteAsync(ct);
     }
 

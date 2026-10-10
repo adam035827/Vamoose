@@ -51,7 +51,7 @@ public class HttpAgentClient(HttpClient http, ILogger<HttpAgentClient> logger) :
                 switch (evt?.Type)
                 {
                     case "Result":
-                        return new AgentResult(evt.Reply, evt.Plan, evt.Questions, evt.Analysis);
+                        return new AgentResult(evt.Reply, evt.Plan, evt.Questions, evt.Analysis, evt.Destination, evt.TripName);
                     case "Error":
                         throw new AgentUnavailableException(evt.Message ?? "The Vamoose agent hit a problem. Please try again.");
                 }

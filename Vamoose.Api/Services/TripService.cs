@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Vamoose.Api.Agents;
 using Vamoose.Api.Data;
 using Vamoose.Api.Domain;
 using Vamoose.Api.Dtos;
@@ -11,6 +12,8 @@ public class TripService(
     CurrentUser currentUser,
     TripAccess access,
     UserService users,
+    IAgentClient agent,
+    MagicLinkService magicLinks,
     NotificationService notifications)
 {
     public async Task<IReadOnlyList<TripSummaryDto>> ListAsync(CancellationToken ct)
@@ -39,29 +42,53 @@ public class TripService(
                 x.Trip.Members.Count(m => m.Status == MemberStatus.Active)))];
     }
 
-    public async Task<Guid> CreateAsync(CreateTripRequest request, CancellationToken ct)
+    // Step 1 of starting a trip (requirements 3.1): a short blurb about the destination.
+    public async Task<StartIntroResponse> IntroAsync(string message, CancellationToken ct)
     {
-        if (request.StartDate is { } start && request.EndDate is { } end && end < start)
+        var result = await agent.InvokeAsync(new AgentInvocation(AgentRequests.NewId(), AgentActions.Chat, Message: message), ct);
+        var destination = Clip(result.Destination, 200) ?? Clip(message, 200) ?? "Somewhere new";
+        return new StartIntroResponse(
+            result.Reply ?? $"{destination} sounds great.",
+            destination,
+            Clip(result.TripName, 120) ?? $"{destination.Split(',')[0]} trip");
+    }
+
+    // Step 2: the trip is created with the organizer and everyone going, each with their own magic link.
+    public async Task<(Trip Trip, User Organizer)> StartAsync(StartTripRequest request, CancellationToken ct)
+    {
+        var organizer = await users.GetOrCreateAsync(request.OrganizerEmail, ct);
+        var travelerEmails = request.TravelerEmails
+            .Select(UserService.Normalize)
+            .Where(e => e.Length > 0 && e != organizer.Email)
+            .Distinct()
+            .ToList();
+        if (travelerEmails.FirstOrDefault(e => !UserService.IsValidEmail(e)) is { } invalid)
         {
-            throw new BadRequestException("The end date can't be before the start date.");
+            throw new BadRequestException($"\"{invalid}\" isn't a valid email address.");
         }
 
         var now = DateTimeOffset.UtcNow;
         var trip = new Trip
         {
             Id = Guid.NewGuid(),
-            Name = request.Name.Trim(),
+            Name = request.TripName.Trim(),
             Destination = request.Destination.Trim(),
-            StartDate = request.StartDate,
-            EndDate = request.EndDate,
-            Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
-            PrimaryUserId = currentUser.Id,
+            Notes = request.Prompt.Trim(),
+            PrimaryUserId = organizer.Id,
+            PrimaryUser = organizer,
             CreatedAt = now,
-            Members = [new TripMember { UserId = currentUser.Id, Role = MemberRole.Primary, AddedAt = now }],
+            Members = [new TripMember { UserId = organizer.Id, User = organizer, Role = MemberRole.Primary, AddedAt = now, AccessToken = MagicLinkService.NewToken() }],
         };
+        foreach (var email in travelerEmails)
+        {
+            var user = await users.GetOrCreateAsync(email, ct);
+            trip.Members.Add(new TripMember { UserId = user.Id, User = user, Role = MemberRole.Traveler, AddedAt = now, AccessToken = MagicLinkService.NewToken() });
+        }
+
         db.Trips.Add(trip);
+        await magicLinks.SendAsync(trip, trip.Members[0], ct);
         await db.SaveChangesAsync(ct);
-        return trip.Id;
+        return (trip, organizer);
     }
 
     public async Task<TripDetailDto> GetAsync(Guid tripId, CancellationToken ct)
@@ -77,25 +104,28 @@ public class TripService(
         TripAccess.RequireStatus(ctx, TripStatus.Planning, TripStatus.Agreement);
 
         var user = await users.GetOrCreateAsync(email, ct);
-        var existing = ctx.Trip.Members.FirstOrDefault(m => m.UserId == user.Id);
-        if (existing is { Status: MemberStatus.Active })
+        var member = ctx.Trip.Members.FirstOrDefault(m => m.UserId == user.Id);
+        if (member is { Status: MemberStatus.Active })
         {
             throw new ConflictException("That person is already on this trip.");
         }
 
-        if (existing is null)
+        if (member is null)
         {
-            db.TripMembers.Add(new TripMember { TripId = tripId, UserId = user.Id, Role = MemberRole.Traveler, AddedAt = DateTimeOffset.UtcNow });
+            member = new TripMember { TripId = tripId, UserId = user.Id, User = user, Role = MemberRole.Traveler, AddedAt = DateTimeOffset.UtcNow, AccessToken = MagicLinkService.NewToken() };
+            db.TripMembers.Add(member);
         }
         else
         {
             // Re-added: they keep their earlier chat history and answers.
-            existing.Status = MemberStatus.Active;
-            existing.ExitedAt = null;
+            member.Status = MemberStatus.Active;
+            member.ExitedAt = null;
         }
 
+        // Travelers get their magic link once the trip has been sent.
         if (ctx.Trip.SentAt != null)
         {
+            await magicLinks.SendAsync(ctx.Trip, member, ct);
             notifications.Notify(user.Id, tripId, NotificationTypes.MemberAdded, $"You were added to the trip \"{ctx.Trip.Name}\".");
         }
         notifications.TripChanged(ctx.ActiveMemberIds, tripId);
@@ -139,12 +169,13 @@ public class TripService(
                 i.Category.ToString(),
                 i.Title,
                 i.Day,
+                i.Date,
                 i.SelectedOptionId,
                 i.Question,
                 votes.FirstOrDefault(c => c.UserId == ctx.Me.UserId)?.OptionId,
                 [.. i.Options.Select(o => new OptionDto(
-                    o.Id, o.Title, o.Description, o.Provider, o.Location, o.Price, o.Currency, o.Url, o.StartTime, o.EndTime,
-                    votes.Count(v => v.OptionId == o.Id)))]);
+                    o.Id, o.Title, o.Description, o.Provider, o.Location, o.EstimatedCost, o.Currency, o.SourceUrl, o.PriceFetchedAt,
+                    o.StartTime, o.EndTime, o.EnergyLevel, votes.Count(v => v.OptionId == o.Id)))]);
         }).ToList();
 
         var changeRequests = requests.Select(r => new ChangeRequestDto(
@@ -160,12 +191,13 @@ public class TripService(
         var status = trip.Status;
         var primary = ctx.IsPrimary;
         var active = ctx.Me.Status == MemberStatus.Active;
+        var windowOpen = AgreementService.WindowOpen(trip);
         var permissions = new PermissionsDto(
             CanChat: active && status != TripStatus.Cancelled,
             CanEditPlan: primary && status is TripStatus.Planning or TripStatus.Agreement,
             CanAddMembers: primary && status is TripStatus.Planning or TripStatus.Agreement,
             CanSend: primary && status is TripStatus.Planning or TripStatus.Agreement && trip.Items.Count > 0,
-            CanRespond: active && status == TripStatus.Agreement && trip.Items.Count > 0,
+            CanRespond: active && status == TripStatus.Agreement && trip.Items.Count > 0 && windowOpen,
             CanLock: primary && status == TripStatus.Agreement,
             CanUnlock: primary && status == TripStatus.Locked,
             CanReopen: primary && status == TripStatus.Cancelled,
@@ -183,10 +215,14 @@ public class TripService(
             ctx.Me.Role.ToString(),
             trip.PrimaryUser.Email,
             ApprovalOf(ctx.Me.UserId),
-            Consensus: activeIds.Count > 0 && activeIds.All(id => approvals.TryGetValue(id, out var ok) && ok),
+            Consensus: AgreementService.HasConsensus(trip, activeIds, approvals),
+            trip.ResponseDeadline,
             members,
             items,
             changeRequests,
             permissions);
     }
+
+    private static string? Clip(string? value, int max) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim() is var v && v.Length > max ? v[..max] : value.Trim();
 }

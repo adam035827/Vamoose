@@ -42,6 +42,20 @@ public class TripAccess(VamooseDbContext db, CurrentUser currentUser)
         return new TripContext(trip, me);
     }
 
+    // For background work with no signed-in user; acts as the trip's primary user.
+    public async Task<TripContext> LoadForSystemAsync(Guid tripId, CancellationToken ct)
+    {
+        var trip = await db.Trips
+            .Include(t => t.Members).ThenInclude(m => m.User)
+            .Include(t => t.PrimaryUser)
+            .Include(t => t.Items).ThenInclude(i => i.Options)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(t => t.Id == tripId, ct) ?? throw new NotFoundException("Trip not found.");
+        trip.Items = [.. trip.Items.OrderBy(i => i.SortOrder)];
+        trip.Items.ForEach(i => i.Options = [.. i.Options.OrderBy(o => o.SortOrder)]);
+        return new TripContext(trip, trip.Members.First(m => m.Role == MemberRole.Primary));
+    }
+
     public static bool CanSee(Trip trip, TripMember me) =>
         me.Role == MemberRole.Primary
         || (me.Status == MemberStatus.Active && trip.SentAt != null && trip.Status != TripStatus.Cancelled);

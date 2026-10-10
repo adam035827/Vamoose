@@ -4,6 +4,8 @@ namespace Vamoose.Api.Agents;
 
 public static class AgentMapper
 {
+    private static readonly HashSet<string> EnergyLevels = ["Low", "Medium", "High"];
+
     public static AgentTripContext ToContext(Trip trip) => new(
         trip.Name,
         trip.Destination,
@@ -18,16 +20,19 @@ public static class AgentMapper
         i.Category.ToString(),
         i.Title,
         i.Day,
+        i.Date,
         Math.Max(0, i.Options.FindIndex(o => o.Id == i.SelectedOptionId)),
         [.. i.Options.Select(o => new AgentPlanOption(
             o.Title,
             o.Description,
             o.Provider,
             o.Location,
-            o.Price is { } price ? new AgentMoney(price, o.Currency ?? "USD") : null,
-            o.Url,
+            o.EstimatedCost is { } cost ? new AgentMoney(cost, o.Currency ?? "USD") : null,
+            o.SourceUrl,
+            o.PriceFetchedAt,
             o.StartTime,
-            o.EndTime))]))]);
+            o.EndTime,
+            o.EnergyLevel))]))]);
 
     // Builds plan items from agent output. Model output is validated here before it is persisted.
     public static List<PlanItem> ToItems(Guid tripId, AgentTripPlan plan)
@@ -50,11 +55,13 @@ public static class AgentMapper
                 Description = Clip(o.Description, 600),
                 Provider = Clip(o.Provider, 120),
                 Location = Clip(o.LocationName, 200),
-                Price = o.Price?.Amount,
-                Currency = o.Price?.Currency,
-                Url = SafeUrl(o.Url),
+                EstimatedCost = o.EstimatedCostPerPerson?.Amount,
+                Currency = o.EstimatedCostPerPerson?.Currency,
+                SourceUrl = SafeUrl(o.SourceUrl),
+                PriceFetchedAt = o.PriceFetchedAt,
                 StartTime = Clip(o.StartTime, 5),
                 EndTime = Clip(o.EndTime, 5),
+                EnergyLevel = o.EnergyLevel is { } e && EnergyLevels.Contains(e) ? e : null,
                 SortOrder = i,
             }).ToList();
 
@@ -66,6 +73,7 @@ public static class AgentMapper
                 Category = category,
                 Title = Clip(slot.Title, 120) ?? category.ToString(),
                 Day = slot.Day,
+                Date = slot.Date,
                 SortOrder = index,
                 SelectedOptionId = options[Math.Clamp(slot.SelectedIndex, 0, options.Count - 1)].Id,
                 Options = options,

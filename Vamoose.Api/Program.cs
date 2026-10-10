@@ -54,6 +54,9 @@ builder.Services.AddScoped<TripService>();
 builder.Services.AddScoped<PlanService>();
 builder.Services.AddScoped<AgreementService>();
 builder.Services.AddScoped<LifecycleService>();
+builder.Services.AddScoped<MagicLinkService>();
+builder.Services.AddSingleton<IEmailSender, DevEmailSender>();
+builder.Services.AddHostedService<ResponseWindowCloser>();
 
 builder.Services.AddHttpClient<IAgentClient, HttpAgentClient>(client =>
 {
@@ -69,9 +72,13 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
-    // Keeps each developer's database on the latest schema.
+    // Keeps each developer's database on the latest schema, with a demo trip to show.
     using var scope = app.Services.CreateScope();
     scope.ServiceProvider.GetRequiredService<VamooseDbContext>().Database.Migrate();
+    if (app.Configuration.GetValue("Demo:Seed", false))
+    {
+        await DemoSeeder.SeedAsync(scope.ServiceProvider);
+    }
 }
 
 app.UseAuthentication();
@@ -81,3 +88,6 @@ app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();
+
+// Lets the API tests start the app with WebApplicationFactory.
+public partial class Program;
