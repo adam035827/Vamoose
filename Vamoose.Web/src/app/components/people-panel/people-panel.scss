@@ -1,0 +1,96 @@
+.people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+
+  &__intro {
+    padding: var(--space-4);
+
+    h2 {
+      font-size: 22px;
+    }
+
+    p {
+      margin: var(--space-2) 0 0;
+      font-size: 14px;
+    }
+  }
+
+  &__progress {
+    height: 8px;
+    margin-top: var(--space-3);
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--color-surface-muted);
+  }
+
+  &__bar {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--color-success);
+    transition: width 0.4s ease;
+  }
+
+  &__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__add {
+    padding: var(--space-4);
+  }
+
+  &__add-row {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  &__exited-title {
+    margin-top: var(--space-2);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  &--exited {
+    opacity: 0.7;
+  }
+
+  &__avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  &__email {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

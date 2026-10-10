@@ -1,0 +1,286 @@
+.trip-state {
+  display: grid;
+  place-items: center;
+  min-height: 50dvh;
+  padding: var(--space-4);
+  text-align: center;
+
+  &__card {
+    max-width: 420px;
+    padding: var(--space-6) var(--space-5);
+
+    p {
+      margin: var(--space-2) 0 var(--space-4);
+    }
+  }
+}
+
+.trip {
+  display: flex;
+  flex-direction: column;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-3) 0;
+
+  @media (min-width: 960px) {
+    height: calc(100dvh - var(--header-height));
+    padding: var(--space-4) var(--space-4) 0;
+  }
+
+  &__head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-2) var(--space-3);
+    align-items: start;
+
+    @media (min-width: 960px) {
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+    }
+  }
+
+  &__back {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    color: var(--color-text);
+    text-decoration: none;
+    font-size: 20px;
+
+    &:hover {
+      background: var(--color-surface-muted);
+    }
+  }
+
+  &__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  &__title {
+    font-size: 24px;
+
+    @media (min-width: 600px) {
+      font-size: 28px;
+    }
+  }
+
+  &__meta {
+    margin: 2px 0 0;
+    font-size: 14px;
+  }
+
+  &__actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+
+    @media (min-width: 960px) {
+      grid-column: auto;
+      justify-content: flex-end;
+    }
+  }
+
+  &__exit {
+    color: var(--color-danger);
+  }
+
+  &__stage {
+    margin: var(--space-3) 0 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+
+    &--info {
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+    }
+
+    &--warning {
+      background: var(--color-warning-soft);
+      color: var(--color-warning);
+    }
+
+    &--success {
+      background: var(--color-success-soft);
+      color: var(--color-success);
+    }
+
+    &--danger {
+      background: var(--color-danger-soft);
+      color: var(--color-danger);
+    }
+  }
+
+  &__error {
+    margin: var(--space-2) 0 0;
+  }
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    padding: var(--space-3) 0;
+
+    @media (min-width: 960px) {
+      display: grid;
+      grid-template-columns: minmax(360px, 5fr) 7fr;
+      gap: var(--space-4);
+      padding-bottom: var(--space-4);
+    }
+  }
+
+  // Phones show one section at a time; wide screens keep the chat beside the selected section.
+  &__chat {
+    display: none;
+    height: calc(100dvh - var(--header-height) - 230px);
+    min-height: 420px;
+
+    @media (min-width: 960px) {
+      display: block;
+      height: 100%;
+      min-height: 0;
+    }
+  }
+
+  &__body--chat &__chat {
+    display: block;
+  }
+
+  &__side {
+    @media (min-width: 960px) {
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: var(--space-1);
+    }
+  }
+
+  &__body--chat &__side {
+    display: none;
+
+    @media (min-width: 960px) {
+      display: block;
+    }
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+  scrollbar-width: none;
+
+  &__tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &--active {
+      border-bottom-color: var(--color-primary);
+      color: var(--color-text);
+    }
+
+    // The chat is always visible on wide screens, so it doesn't need a tab there.
+    &--chat {
+      @media (min-width: 960px) {
+        display: none;
+      }
+    }
+  }
+
+  &__count {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+  }
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: end center;
+  padding: var(--space-3);
+  background: rgb(0 0 0 / 45%);
+
+  @media (min-width: 600px) {
+    place-items: center;
+  }
+}
+
+.dialog {
+  width: 100%;
+  max-width: 460px;
+  padding: var(--space-5);
+  box-shadow: var(--shadow-pop);
+  animation: dialog-in 0.2s ease-out;
+
+  h2 {
+    font-size: 22px;
+    margin-bottom: var(--space-3);
+  }
+
+  &__agent {
+    display: flex;
+    gap: var(--space-3);
+
+    p {
+      margin: 0;
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      background: var(--color-surface-muted);
+    }
+  }
+
+  &__avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-5);
+
+    @media (min-width: 480px) {
+      flex-direction: row-reverse;
+    }
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}

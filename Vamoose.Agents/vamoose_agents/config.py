@@ -1,5 +1,9 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
+
+# Creating this file switches a running service to mock mode without a restart (requirements 6.2).
+MOCK_FLAG_FILE = Path(__file__).resolve().parent.parent / ".mock"
 
 
 @dataclass(frozen=True)
@@ -13,5 +17,5 @@ class Settings:
         return cls(
             aws_region=os.getenv("AWS_REGION", "us-east-2"),
             planner_model_id=os.getenv("VAMOOSE_PLANNER_MODEL_ID") or None,
-            mock_agents=os.getenv("VAMOOSE_MOCK_AGENTS", "0") == "1",
+            mock_agents=os.getenv("VAMOOSE_MOCK_AGENTS", "0") == "1" or MOCK_FLAG_FILE.exists(),
         )

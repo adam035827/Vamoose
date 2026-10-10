@@ -1,0 +1,79 @@
+<section class="chat card" aria-label="Chat with the Vamoose agent">
+  <header class="chat__head">
+    <span class="chat__avatar" aria-hidden="true">✈</span>
+    <div>
+      <h2 class="chat__title">Vamoose agent</h2>
+      <p class="chat__subtitle muted">
+        {{ canEdit() ? 'Plans with live web search. Ask for options, changes, or alternatives.' : 'Ask anything about the plan.' }}
+      </p>
+    </div>
+  </header>
+
+  <div class="chat__scroller" #scroller>
+    @if (messages().length === 0 && !pending()) {
+      <div class="chat__empty">
+        <p class="muted">
+          {{ canEdit() ? 'Start by telling the agent about the trip: who\'s going, budget, where people fly from, and must-dos.' : 'No messages yet.' }}
+        </p>
+        @if (canChat()) {
+          <div class="chat__prompts">
+            @for (p of prompts; track p) {
+              <button type="button" class="chat__prompt" (click)="usePrompt(p)">{{ p }}</button>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @for (m of messages(); track m.id) {
+      <div class="msg" [class.msg--user]="m.role === 'User'">
+        <p class="msg__bubble">{{ m.content }}</p>
+        <span class="msg__time">{{ m.createdAt | date: 'h:mm a' }}</span>
+      </div>
+    }
+
+    @if (pending(); as text) {
+      <div class="msg msg--user">
+        <p class="msg__bubble">{{ text }}</p>
+      </div>
+      <div class="msg">
+        <p class="msg__bubble msg__bubble--typing" aria-label="The agent is thinking">
+          <span></span><span></span><span></span>
+        </p>
+        <span class="msg__time">{{ canEdit() ? 'Searching and planning…' : 'Thinking…' }}</span>
+      </div>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="alert chat__error" role="alert">
+      {{ error() }}
+      @if (failed()) {
+        <button type="button" class="btn btn--small" (click)="retry()">Retry</button>
+      }
+    </p>
+  }
+
+  @if (canChat()) {
+    <form class="chat__composer" (ngSubmit)="send()">
+      <label class="sr-only" for="chat-input">Message the Vamoose agent</label>
+      <textarea
+        id="chat-input"
+        class="input chat__input"
+        name="message"
+        rows="1"
+        maxlength="4000"
+        [placeholder]="canEdit() ? 'Ask the agent to plan or change something…' : 'Ask about the plan…'"
+        [ngModel]="draft()"
+        (ngModelChange)="draft.set($event)"
+        (keydown)="onKeydown($event)"
+        [disabled]="sending()"
+      ></textarea>
+      <button type="submit" class="btn btn--primary chat__send" [disabled]="sending() || !draft().trim()" aria-label="Send">
+        ➤
+      </button>
+    </form>
+  } @else {
+    <p class="chat__readonly muted">This chat is read-only.</p>
+  }
+</section>

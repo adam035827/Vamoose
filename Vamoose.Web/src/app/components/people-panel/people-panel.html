@@ -1,0 +1,60 @@
+<div class="people">
+  <div class="people__intro card">
+    <h2>Travelers</h2>
+    @if (showApprovals()) {
+      <div class="people__progress" role="img" [attr.aria-label]="approvedCount() + ' of ' + active().length + ' approved'">
+        <div class="people__bar" [style.width.%]="(approvedCount() / active().length) * 100"></div>
+      </div>
+      <p class="muted">{{ approvedCount() }} of {{ active().length }} approved the current plan</p>
+    } @else {
+      <p class="muted">Travelers see the trip once you finalize and send it.</p>
+    }
+  </div>
+
+  <ul class="people__list card">
+    @for (m of active(); track m.userId) {
+      <li class="person">
+        <span class="person__avatar" aria-hidden="true">{{ initials(m) }}</span>
+        <span class="person__email">{{ m.email }}</span>
+        @if (m.role === 'Primary') {
+          <span class="badge badge--Planning">Organizer</span>
+        }
+        @if (showApprovals()) {
+          @switch (m.approval) {
+            @case ('Approved') { <span class="badge badge--Locked">✓ Approved</span> }
+            @case ('Denied') { <span class="badge badge--Agreement">Wants changes</span> }
+            @default { <span class="badge">Waiting</span> }
+          }
+        }
+      </li>
+    }
+  </ul>
+
+  @if (trip().permissions.canAddMembers) {
+    <form class="people__add card" (ngSubmit)="submit()">
+      <label class="field">
+        <span class="field__label">Add a traveler by email</span>
+        <div class="people__add-row">
+          <input class="input" type="email" name="email" placeholder="friend@example.com" required
+            [ngModel]="email()" (ngModelChange)="email.set($event)" />
+          <button type="submit" class="btn btn--primary" [disabled]="busy() || !email().trim()">Add</button>
+        </div>
+      </label>
+    </form>
+  }
+
+  @if (exited().length) {
+    <h3 class="people__exited-title">Left the trip</h3>
+    <ul class="people__list card">
+      @for (m of exited(); track m.userId) {
+        <li class="person person--exited">
+          <span class="person__avatar" aria-hidden="true">{{ initials(m) }}</span>
+          <span class="person__email">{{ m.email }}</span>
+          @if (trip().permissions.canAddMembers) {
+            <button type="button" class="btn btn--small" [disabled]="busy()" (click)="readd(m)">Re-add</button>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

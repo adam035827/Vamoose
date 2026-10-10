@@ -1,1 +1,24 @@
-<router-outlet />
+@if (user(); as u) {
+  <header class="app-header">
+    <a class="app-header__brand" routerLink="/">
+      <span class="app-header__logo" aria-hidden="true">✈</span>
+      <span>Vamoose</span>
+    </a>
+    <div class="app-header__actions">
+      <app-notification-bell />
+      <span class="app-header__email">{{ u.email }}</span>
+      <button type="button" class="btn btn--ghost btn--small" (click)="logout()">Log out</button>
+    </div>
+  </header>
+}
+
+<main class="app-main" [class.app-main--bare]="!user()">
+  <router-outlet />
+</main>
+
+@if (toast(); as t) {
+  <button type="button" class="toast" (click)="openToast(t)" role="status">
+    <span class="toast__dot" aria-hidden="true"></span>
+    <span>{{ t.message }}</span>
+  </button>
+}

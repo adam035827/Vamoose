@@ -56,7 +56,8 @@ async def test_model_failure_returns_friendly_error_without_internals():
         ({"requestId": "req-test-2", "action": "Draft", "message": "x" * 4001}, "Invalid invocation payload."),
         ({"requestId": "req-test-3", "action": "Draft", "extra": 1}, "Invalid invocation payload."),
         ({"requestId": "req-test-4", "action": "Draft"}, "Tell me about the trip first."),
-        ({"requestId": "req-test-5", "action": "Analyze"}, "Analyze is not available yet."),
+        ({"requestId": "req-test-5", "action": "Price"}, "Price is not available yet."),
+        ({"requestId": "req-test-6", "action": "Analyze"}, "Analyze needs: trip, plan, responses."),
     ],
 )
 async def test_rejected_requests_return_single_error(payload, expected):

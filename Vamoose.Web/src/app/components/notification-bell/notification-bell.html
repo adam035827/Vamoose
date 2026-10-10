@@ -1,0 +1,39 @@
+<button
+  type="button"
+  class="bell"
+  (click)="toggle()"
+  [attr.aria-expanded]="open()"
+  [attr.aria-label]="unread() ? unread() + ' unread notifications' : 'Notifications'"
+>
+  <svg class="bell__icon" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 3a6 6 0 0 0-6 6v3.6L4.4 15.4A1 1 0 0 0 5.3 17h13.4a1 1 0 0 0 .9-1.6L18 12.6V9a6 6 0 0 0-6-6Zm0 19a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z" />
+  </svg>
+  @if (unread()) {
+    <span class="bell__count">{{ unread() > 9 ? '9+' : unread() }}</span>
+  }
+</button>
+
+@if (open()) {
+  <div class="panel card" role="dialog" aria-label="Notifications">
+    <div class="panel__head">
+      <h2 class="panel__title">Notifications</h2>
+      @if (unread()) {
+        <button type="button" class="btn btn--ghost btn--small" (click)="markAll()">Mark all read</button>
+      }
+    </div>
+    @if (items().length === 0) {
+      <p class="panel__empty muted">You're all caught up.</p>
+    } @else {
+      <ul class="panel__list">
+        @for (n of items(); track n.id) {
+          <li>
+            <button type="button" class="note" [class.note--unread]="!n.read" (click)="select(n)">
+              <span class="note__message">{{ n.message }}</span>
+              <span class="note__time">{{ n.createdAt | date: 'MMM d, h:mm a' }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+}
