@@ -1,3 +1,5 @@
+using Amazon;
+using Amazon.BedrockAgentCore;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Vamoose.Api.Agents;
@@ -58,11 +60,23 @@ builder.Services.AddScoped<MagicLinkService>();
 builder.Services.AddSingleton<IEmailSender, DevEmailSender>();
 builder.Services.AddHostedService<ResponseWindowCloser>();
 
-builder.Services.AddHttpClient<IAgentClient, HttpAgentClient>(client =>
+if (!string.IsNullOrEmpty(builder.Configuration["Agents:RuntimeArn"]))
 {
-    client.BaseAddress = new Uri(builder.Configuration["Agents:BaseUrl"] ?? "http://localhost:8080/");
-    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Agents:TimeoutSeconds", 180));
-});
+    builder.Services.AddSingleton<IAmazonBedrockAgentCore>(_ => new AmazonBedrockAgentCoreClient(new AmazonBedrockAgentCoreConfig
+    {
+        RegionEndpoint = RegionEndpoint.GetBySystemName(builder.Configuration["Agents:Region"] ?? "us-east-2"),
+        Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Agents:TimeoutSeconds", 180)),
+    }));
+    builder.Services.AddScoped<IAgentClient, AgentCoreAgentClient>();
+}
+else
+{
+    builder.Services.AddHttpClient<IAgentClient, HttpAgentClient>(client =>
+    {
+        client.BaseAddress = new Uri(builder.Configuration["Agents:BaseUrl"] ?? "http://localhost:8080/");
+        client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Agents:TimeoutSeconds", 180));
+    });
+}
 
 var app = builder.Build();
 
@@ -71,14 +85,6 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-
-    // Keeps each developer's database on the latest schema, with a demo trip to show.
-    using var scope = app.Services.CreateScope();
-    scope.ServiceProvider.GetRequiredService<VamooseDbContext>().Database.Migrate();
-    if (app.Configuration.GetValue("Demo:Seed", false))
-    {
-        await DemoSeeder.SeedAsync(scope.ServiceProvider);
-    }
 }
 
 app.UseAuthentication();

@@ -1,0 +1,17 @@
+{
+  "targets": {
+    "default": {
+      "resources": {
+        "runtimes": {
+          "VamooseAgents": {
+            "runtimeId": "VamooseAgents_VamooseAgents-M7CWbmE3bi",
+            "runtimeArn": "arn:aws:bedrock-agentcore:us-east-2:965472235570:runtime/VamooseAgents_VamooseAgents-M7CWbmE3bi",
+            "roleArn": "arn:aws:iam::965472235570:role/AgentCore-VamooseAgents-d-ApplicationAgentVamooseAg-Y9Otryf4QciC"
+          }
+        },
+        "stackName": "AgentCore-VamooseAgents-default",
+        "deployHash": "3ea9133e10d7ff60"
+      }
+    }
+  }
+}
