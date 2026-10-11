@@ -9,7 +9,7 @@ MOCK_FLAG_FILE = AGENTS_DIR / ".mock"
 LOCAL_ENV_FILE = AGENTS_DIR / ".env"
 
 # Pinned so every machine and terminal runs the same models; both are enabled on the team's AWS account.
-DEFAULT_PLANNER_MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+DEFAULT_PLANNER_MODEL_ID = "global.anthropic.claude-sonnet-4-6"
 DEFAULT_FAST_MODEL_ID = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 

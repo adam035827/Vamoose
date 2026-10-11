@@ -73,22 +73,21 @@ The Strands agents call Claude on Amazon Bedrock in the team's AWS account (`us-
 aws configure --profile vamoose
 ```
 
-**5b. Set the environment variables.** These are required. Without `VAMOOSE_PLANNER_MODEL_ID` you get the Strands default model, which isn't enabled on the account and fails with an `AccessDeniedException ... aws-marketplace` error.
+**5b. Set the environment variables.** These are required. The Claude models are set in code, so don't set `VAMOOSE_PLANNER_MODEL_ID`; if you set it earlier, remove it, or you'll keep using the older model.
 
 **Windows** (run once; applies to every terminal after you restart VS Code):
 
 ```powershell
 [Environment]::SetEnvironmentVariable('AWS_PROFILE', 'vamoose', 'User')
 [Environment]::SetEnvironmentVariable('AWS_REGION', 'us-east-2', 'User')
-[Environment]::SetEnvironmentVariable('VAMOOSE_PLANNER_MODEL_ID', 'global.anthropic.claude-sonnet-4-5-20250929-v1:0', 'User')
+[Environment]::SetEnvironmentVariable('VAMOOSE_PLANNER_MODEL_ID', $null, 'User')   # removes an old override
 ```
 
-**Mac** (add these lines to `~/.zshrc`, then open a new terminal):
+**Mac** (add these lines to `~/.zshrc`, delete any `VAMOOSE_PLANNER_MODEL_ID` line there, then open a new terminal):
 
 ```bash
 export AWS_PROFILE=vamoose
 export AWS_REGION=us-east-2
-export VAMOOSE_PLANNER_MODEL_ID=global.anthropic.claude-sonnet-4-5-20250929-v1:0
 ```
 
 Restart VS Code (Windows) or open a new terminal (Mac).
@@ -169,10 +168,10 @@ VAMOOSE_MOCK_AGENTS=0 .venv/bin/python -m vamoose_agents.app
 **Check that it's using real Claude.** The first line must read:
 
 ```text
-Vamoose agent service on http://127.0.0.1:8080 - Bedrock global.anthropic.claude-sonnet-4-5-20250929-v1:0 (us-east-2, profile=vamoose)
+Vamoose agent service on http://127.0.0.1:8080 - Bedrock planner=global.anthropic.claude-sonnet-4-6 fast=global.anthropic.claude-haiku-4-5-20251001-v1:0 (us-east-2, profile=vamoose), search=...
 ```
 
-- It must say `Bedrock`, the Sonnet 4.5 model, and `profile=vamoose`, with no `WARNING` lines.
+- It must say `Bedrock`, the Sonnet 4.6 planner, and `profile=vamoose`, with no `WARNING` lines.
 - If it says `mock`, mock mode is on: run the command above exactly as shown (with `VAMOOSE_MOCK_AGENTS` set to `0`), and delete the file `Vamoose.Agents\.mock` if it exists.
 - If it says "Strands default" or `profile=default`, step 5b didn't take effect: restart VS Code or open a new terminal.
 - Check the service at http://localhost:8080/ping, which returns `Healthy`.
