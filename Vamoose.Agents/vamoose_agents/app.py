@@ -50,11 +50,15 @@ def describe(settings: Settings) -> str:
     )
 
 
-if __name__ == "__main__":
-    load_local_env()
+def log_startup(where: str) -> None:
     configure_logging()
     settings = Settings.from_env()
-    print(f"Vamoose agent service on http://127.0.0.1:8080 - {describe(settings)}", file=sys.stderr, flush=True)
+    print(f"Vamoose agent service {where} - {describe(settings)}", file=sys.stderr, flush=True)
     for warning in startup_warnings(settings):
         print(f"WARNING: {warning}", file=sys.stderr, flush=True)
+
+
+if __name__ == "__main__":
+    load_local_env()
+    log_startup("on http://127.0.0.1:8080")
     app.run()
