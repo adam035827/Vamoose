@@ -1,3 +1,9 @@
+cd C:\Repos\Vamoose
+git pull
+$env:UV_SYSTEM_CERTS="1"; $env:UV_PYTHON="C:\tools\python313\tools\python.exe"; $env:UV_PYTHON_DOWNLOADS="never"; $env:AWS_CA_BUNDLE="C:\certs\zscaler.pem"; $env:NODE_EXTRA_CA_CERTS="C:\certs\zscaler.pem"
+agentcore deploy --yes
+git restore agentcore/.cli/deployed-state.json
+
 cd ~/Vamoose && git checkout main && git pull
 cd ~/Vamoose/Vamoose.Web && npm ci && npm run build
 sudo rm -rf /var/www/vamoose/frontend/*
@@ -8,4 +14,3 @@ sudo cp -r ~/api-publish/. /var/www/vamoose/api/
 sudo systemctl start vamoose-api
 systemctl is-active vamoose-api
 curl -s http://localhost/api/hello; echo
-

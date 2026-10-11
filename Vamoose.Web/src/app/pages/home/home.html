@@ -4,7 +4,7 @@
       <img class="start__logo" src="/oo.svg" alt="" aria-hidden="true" />
       <h1 class="start__title">Where do you want to go?</h1>
 
-      <form class="input-shell start__ask" (ngSubmit)="ask()">
+      <form class="input-shell start__ask" [class.loading-border]="step() === 'thinking'" (ngSubmit)="ask()">
         <label class="sr-only" for="start-prompt">Where do you want to go?</label>
         <input
           #promptInput

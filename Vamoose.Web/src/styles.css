@@ -279,3 +279,39 @@ textarea::placeholder {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+@property --loading-border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.loading-border {
+  position: relative;
+}
+
+.loading-border::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  padding: 3px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--loading-border-angle), transparent 0%, var(--color-primary) 55%, var(--color-accent) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: loading-border-spin 2.4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes loading-border-spin {
+  to {
+    --loading-border-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-border::before {
+    animation: none;
+  }
+}
