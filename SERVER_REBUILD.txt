@@ -1,0 +1,11 @@
+cd ~/Vamoose && git checkout main && git pull
+cd ~/Vamoose/Vamoose.Web && npm ci && npm run build
+sudo rm -rf /var/www/vamoose/frontend/*
+sudo cp -r ~/Vamoose/Vamoose.Web/dist/Vamoose.Web/browser/. /var/www/vamoose/frontend/
+cd ~/Vamoose/Vamoose.Api && dotnet publish -c Release -o ~/api-publish
+sudo systemctl stop vamoose-api
+sudo cp -r ~/api-publish/. /var/www/vamoose/api/
+sudo systemctl start vamoose-api
+systemctl is-active vamoose-api
+curl -s http://localhost/api/hello; echo
+

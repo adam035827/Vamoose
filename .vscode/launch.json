@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API (.NET)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-api",
+      "program": "${workspaceFolder}/Vamoose.Api/bin/Debug/net9.0/Vamoose.Api.dll",
+      "cwd": "${workspaceFolder}/Vamoose.Api",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5019"
+      },
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Web (Angular)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm start",
+      "cwd": "${workspaceFolder}/Vamoose.Web"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "API + Web",
+      "configurations": ["API (.NET)", "Web (Angular)"],
+      "stopAll": true
+    }
+  ]
+}
