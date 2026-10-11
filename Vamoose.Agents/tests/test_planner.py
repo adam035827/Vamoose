@@ -33,16 +33,25 @@ RESPONSES = {
         }
     ],
 }
-MAJORITY = {
-    "kind": "Majority",
-    "slotTitle": "Where we stay",
-    "userChoice": "Hostel",
-    "majorityChoice": "Apartment",
-    "userChoiceCount": 1,
-    "majorityCount": 3,
-    "totalResponses": 4,
-    "nudgeNumber": 1,
-}
+APARTMENT, HOSTEL = "Old-town apartment in Lisbon", "Budget hostel private rooms"
+
+
+def responses(*votes: str) -> dict:
+    """One lodging slot, with traveler-N voting for votes[N-1]."""
+    return {
+        "approved": [],
+        "denied": [],
+        "pending": [],
+        "slots": [
+            {
+                "key": "lodging-main",
+                "title": "Where we stay",
+                "selected": APARTMENT,
+                "alternatives": [HOSTEL],
+                "choices": [{"participant": f"traveler-{i + 1}", "option": v} for i, v in enumerate(votes)],
+            }
+        ],
+    }
 
 
 def invocation(**fields) -> AgentInvocation:
@@ -230,21 +239,45 @@ async def test_questions_fall_back_to_templates_when_model_fails():
     assert len(result.questions) == len(PLAN["slots"]) and all(q.prompt for q in result.questions)
 
 
-async def test_analyze_counts_in_code_and_model_only_writes_summary():
-    fast = ScriptedToolModel("AgentMessage", {"message": "One traveler prefers the hostel."})
+async def test_majority_decides_in_code_and_model_only_writes_summary():
+    fast = ScriptedToolModel("Resolution", {"summary": "Most of the group wants the hostel.", "tieBreaks": []})
 
-    result = await analyze(invocation(action="Analyze", plan=PLAN, responses=RESPONSES), Models(Boom(), fast))
+    result = await analyze(invocation(action="Analyze", plan=PLAN, responses=responses(HOSTEL, HOSTEL, APARTMENT)), Models(Boom(), fast))
 
-    assert result.summary == "One traveler prefers the hostel."
-    assert not result.works_for_all
-    assert result.items[0].approvers == ["traveler-1"] and result.items[0].dissenters == ["traveler-3"]
-    assert result.items[0].alternatives == ["Budget hostel private rooms"]
+    item = result.items[0]
+    assert result.summary == "Most of the group wants the hostel."
+    assert item.decision == HOSTEL and not item.tie_break
+    assert item.approvers == ["traveler-1", "traveler-2"] and item.dissenters == ["traveler-3"]
+    assert item.alternatives == [APARTMENT] and not result.works_for_all
 
 
-async def test_analyze_falls_back_to_template_summary_when_model_fails():
-    result = await analyze(invocation(action="Analyze", plan=PLAN, responses=RESPONSES), Models(Boom(), Boom()))
+async def test_agent_breaks_ties_among_the_tied_options():
+    fast = ScriptedToolModel(
+        "Resolution",
+        {"summary": "Split down the middle.", "tieBreaks": [{"slotKey": "lodging-main", "option": HOSTEL, "reason": "Cheaper."}]},
+    )
 
-    assert result.items[0].dissenters == ["traveler-3"] and result.summary
+    result = await analyze(invocation(action="Analyze", plan=PLAN, responses=responses(HOSTEL, APARTMENT)), Models(Boom(), fast))
+
+    item = result.items[0]
+    assert item.decision == HOSTEL and item.tie_break and item.reason == "Cheaper."
+
+
+async def test_tie_break_outside_the_tied_options_is_ignored():
+    fast = ScriptedToolModel(
+        "Resolution",
+        {"summary": "Picked something new.", "tieBreaks": [{"slotKey": "lodging-main", "option": "A castle", "reason": "Fun."}]},
+    )
+
+    result = await analyze(invocation(action="Analyze", plan=PLAN, responses=responses(HOSTEL, APARTMENT)), Models(Boom(), fast))
+
+    assert result.items[0].decision == APARTMENT and result.items[0].reason is None
+
+
+async def test_analyze_falls_back_to_current_pick_on_ties_when_model_fails():
+    result = await analyze(invocation(action="Analyze", plan=PLAN, responses=responses(HOSTEL, APARTMENT)), Models(Boom(), Boom()))
+
+    assert result.items[0].decision == APARTMENT and result.items[0].tie_break and result.summary
 
 
 @pytest.mark.parametrize(
@@ -255,7 +288,6 @@ async def test_analyze_falls_back_to_template_summary_when_model_fails():
         ({"action": "Questions", "trip": TRIP, "plan": PLAN}, "questions"),
         ({"action": "Analyze", "trip": TRIP, "plan": PLAN, "responses": RESPONSES}, "analysis"),
         ({"action": "Research", "trip": TRIP, "plan": PLAN}, "reply"),
-        ({"action": "Nudge", "trip": TRIP, "plan": PLAN, "nudge": MAJORITY}, "reply"),
         ({"action": "Nudge", "trip": TRIP, "plan": PLAN, "nudge": {"kind": "Stay"}}, "reply"),
     ],
 )

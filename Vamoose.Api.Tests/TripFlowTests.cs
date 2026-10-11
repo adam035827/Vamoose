@@ -111,7 +111,6 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
         var trip = await Send(organizer, tripId);
         var anaClient = await factory.OpenMagicLinkAsync(ana);
         var benClient = await factory.OpenMagicLinkAsync(ben);
-        (await organizer.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(Current(trip)))).EnsureSuccessStatusCode();
         (await anaClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(Current(trip)))).EnsureSuccessStatusCode();
 
         await ExpireWindowAsync(tripId);
@@ -120,39 +119,77 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
         var late = await benClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(Current(trip)));
         Assert.Equal(HttpStatusCode.Conflict, late.StatusCode);
         var after = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
-        Assert.True(after!.Consensus);
+        Assert.True(after!.Decided);
+        Assert.False(after.Permissions.CanRespond);
         var notes = await organizer.GetFromJsonAsync<List<NotificationDto>>("/api/notifications");
-        Assert.Contains(notes!, n => n.Type == NotificationTypes.WindowClosed && n.Message.Contains("2 of 3"));
+        Assert.Single(notes!, n => n.Type == NotificationTypes.PlanDecided && n.Message.Contains("1 of 2 travelers"));
     }
 
     [Fact]
-    public async Task Minority_traveler_is_nudged_then_nudged_once_more_in_chat_and_no_more()
+    public async Task Answers_stay_silent_until_everyone_responds_then_the_majority_choice_is_applied()
     {
         var ana = VamooseFactory.NewEmail("ana");
         var ben = VamooseFactory.NewEmail("ben");
-        var cleo = VamooseFactory.NewEmail("cleo");
-        var (organizer, tripId) = await PlannedTripAsync(ana, ben, cleo);
+        var (organizer, tripId) = await PlannedTripAsync(ana, ben);
         var trip = await Send(organizer, tripId);
         var lodging = trip.Items.Single(i => i.Key == "lodging-main");
         var hostel = lodging.Options.Single(o => o.Title == "Hostel").Id;
-        var cleoClient = await factory.OpenMagicLinkAsync(cleo);
+        var wantsHostel = Current(trip).Select(c => c.ItemId == lodging.Id ? c with { OptionId = hostel } : c).ToList();
+        var notesBefore = (await organizer.GetFromJsonAsync<List<NotificationDto>>("/api/notifications"))!.Count;
 
-        foreach (var email in new[] { ana, ben })
+        var anaClient = await factory.OpenMagicLinkAsync(ana);
+        (await anaClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(wantsHostel))).EnsureSuccessStatusCode();
+
+        var waiting = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+        Assert.Equal(lodging.SelectedOptionId, waiting!.Items.Single(i => i.Id == lodging.Id).SelectedOptionId);
+        Assert.False(waiting.Decided);
+        Assert.Equal(notesBefore, (await organizer.GetFromJsonAsync<List<NotificationDto>>("/api/notifications"))!.Count);
+
+        var benClient = await factory.OpenMagicLinkAsync(ben);
+        (await benClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(wantsHostel))).EnsureSuccessStatusCode();
+
+        var decided = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+        Assert.True(decided!.Decided);
+        Assert.Equal(hostel, decided.Items.Single(i => i.Id == lodging.Id).SelectedOptionId);
+        var notes = await organizer.GetFromJsonAsync<List<NotificationDto>>("/api/notifications");
+        Assert.Equal(notesBefore + 1, notes!.Count);
+        Assert.Contains("changed 1 item(s)", Assert.Single(notes, n => n.Type == NotificationTypes.PlanDecided).Message);
+        var chat = await organizer.GetFromJsonAsync<List<ChatMessageDto>>($"/api/trips/{tripId}/chat");
+        Assert.Contains(chat!, m => m.Content.Contains("Where we stay: Hostel, was Apartment (2 of 3 votes)"));
+    }
+
+    [Fact]
+    public async Task Ties_are_broken_by_the_agent_or_keep_the_current_pick_when_it_is_down()
+    {
+        foreach (var down in new[] { false, true })
         {
-            var c = await factory.OpenMagicLinkAsync(email);
-            (await c.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(Current(trip)))).EnsureSuccessStatusCode();
+            var ana = VamooseFactory.NewEmail("ana");
+            var (organizer, tripId) = await PlannedTripAsync(ana);
+            var trip = await Send(organizer, tripId);
+            var lodging = trip.Items.Single(i => i.Key == "lodging-main");
+            var hostel = lodging.Options.Single(o => o.Title == "Hostel").Id;
+            var anaClient = await factory.OpenMagicLinkAsync(ana);
+            var own = await organizer.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(Current(trip)));
+            Assert.Equal(HttpStatusCode.Conflict, own.StatusCode);
+            Assert.False(trip.Permissions.CanRespond);
+
+            factory.Agent.Down = down;
+            try
+            {
+                var wantsHostel = Current(trip).Select(c => c.ItemId == lodging.Id ? c with { OptionId = hostel } : c).ToList();
+                (await anaClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(wantsHostel))).EnsureSuccessStatusCode();
+            }
+            finally
+            {
+                factory.Agent.Down = false;
+            }
+
+            var decided = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+            Assert.True(decided!.Decided);
+            Assert.Equal(down ? lodging.SelectedOptionId : hostel, decided.Items.Single(i => i.Id == lodging.Id).SelectedOptionId);
+            var chat = await organizer.GetFromJsonAsync<List<ChatMessageDto>>($"/api/trips/{tripId}/chat");
+            Assert.Contains(chat!, m => m.Content.Contains(down ? "tie, so the current pick stayed" : "tie, so the agent picked it: Better value."));
         }
-        var cleoChoices = Current(trip).Select(c => c.ItemId == lodging.Id ? c with { OptionId = hostel } : c).ToList();
-        (await cleoClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(cleoChoices))).EnsureSuccessStatusCode();
-
-        var chat = await cleoClient.GetFromJsonAsync<List<ChatMessageDto>>($"/api/trips/{tripId}/chat");
-        Assert.Single(chat!, m => m.Content == "Most chose the apartment.");
-
-        var nudgesBefore = factory.Agent.Calls.Count(c => c.Nudge?.Kind == NudgeKinds.Majority);
-        await cleoClient.PostAsJsonAsync($"/api/trips/{tripId}/chat", new ChatRequest("Why?"));
-        await cleoClient.PostAsJsonAsync($"/api/trips/{tripId}/chat", new ChatRequest("Hmm"));
-        var secondNudges = factory.Agent.Calls.Count(c => c.Nudge?.Kind == NudgeKinds.Majority) - nudgesBefore;
-        Assert.Equal(1, secondNudges);
     }
 
     [Fact]

@@ -17,7 +17,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { errorMessage } from '@functions/errors';
 import { CATEGORY_ICON, formatMoney, formatPrice, formatTime, groupByDay, selectedOption, timeLeft } from '@functions/format';
-import { ChangeRequest, ChatMessage, PlanItem, PlanOption, TripDetail } from '@interfaces/api';
+import { ChatMessage, PlanItem, PlanOption, TripDetail } from '@interfaces/api';
 import { MarkdownPipe } from '@pipes/markdown.pipe';
 import { NotificationService } from '@services/notification.service';
 import { TripService } from '@services/trip.service';
@@ -140,11 +140,16 @@ export class TripPage {
     }
     const others = activeNames(t).slice(1);
     const who = others.length ? joinNames(others) : 'the group';
+    if (t.decided) {
+      return `The answers are in, and I updated the plan with what most of the group chose.`;
+    }
     const left = this.remaining();
-    return left ? `Sent to ${who}. They have ${left} left to answer.` : `Sent to ${who}. The response window has closed.`;
+    return left
+      ? `Sent to ${who}. They have ${left} left to answer. Your itinerary counts as your vote, and I'll update the plan once they've all answered.`
+      : `Sent to ${who}. The response window has closed.`;
   });
 
-  // Organizers change the plan by chatting, so only travelers get the poll.
+  // Only travelers get the poll; the organizer's itinerary already counts as their vote.
   protected readonly questions = computed(() => {
     const t = this.trip();
     if (!t || this.isPrimary() || !t.permissions.canRespond) {
@@ -174,20 +179,19 @@ export class TripPage {
     () => this.busy() && this.questions().length > 0 && this.questions().every((i) => !i.myChoiceOptionId && this._answers()[i.id]),
   );
 
-  protected readonly pendingRequests = computed(() => {
+  // Answers change nothing until everyone has voted.
+  protected readonly answeredNote = computed(() => {
     const t = this.trip();
-    if (!t || !this.isPrimary() || t.status !== 'Agreement') {
-      return [];
+    if (!t || this.isPrimary() || t.status !== 'Agreement') {
+      return null;
     }
-    return t.changeRequests.filter((r) => r.status === 'Pending');
-  });
-
-  protected readonly myRequests = computed(() => {
-    const t = this.trip();
-    if (!t || this.isPrimary()) {
-      return [];
+    if (t.decided) {
+      return 'Everyone has answered, and the plan now has what most of the group chose.';
     }
-    return t.changeRequests.filter((r) => r.status !== 'Superseded');
+    const items = this.questions();
+    return items.length && items.every((i) => i.myChoiceOptionId)
+      ? "Thanks! I'll update the plan with the group's choices once everyone has answered."
+      : null;
   });
 
   // The summary follows the opening prompt from the home page.
@@ -325,17 +329,6 @@ export class TripPage {
 
   protected readonly name = shortName;
 
-  protected requestText(r: ChangeRequest): string {
-    switch (r.status) {
-      case 'Approved':
-        return `Good news: ${r.toTitle} is in the plan now.`;
-      case 'Denied':
-        return `The organizer kept ${r.fromTitle} instead of ${r.toTitle}.`;
-      default:
-        return `I asked the organizer to swap ${r.fromTitle} for ${r.toTitle}. Waiting on their answer.`;
-    }
-  }
-
   protected sendToGroup(): Promise<void> {
     return this.act(() => this._trips.send(this.id()));
   }
@@ -360,10 +353,6 @@ export class TripPage {
         return rest;
       });
     }
-  }
-
-  protected decide(request: ChangeRequest, approve: boolean): Promise<void> {
-    return this.act(() => this._trips.decideChange(this.id(), request.id, approve));
   }
 
   private async act(call: () => Promise<TripDetail>): Promise<void> {

@@ -156,12 +156,6 @@ def mock_chat(invocation: AgentInvocation) -> ChatReply:
         )
     destination = invocation.trip.destination
     if not invocation.can_edit_plan:
-        if invocation.nudge and invocation.nudge.kind == "Majority":
-            n = invocation.nudge
-            return ChatReply(
-                reply=f"(Mock) Just a heads-up: {n.majority_count} of {n.total_responses} chose {n.majority_choice} for "
-                f"{n.slot_title}. Your pick is still yours, but switching would help the group agree."
-            )
         return ChatReply(reply="(Mock agent) Happy to help. Ask me anything about the plan.")
     if invocation.plan and invocation.plan.slots:
         return ChatReply(reply=f"(Mock agent) Noted. The current plan for {destination} still fits; no changes made.")
@@ -198,26 +192,22 @@ def mock_questions(invocation: AgentInvocation) -> QuestionSet:
 
 
 def mock_analysis(invocation: AgentInvocation) -> Analysis:
-    r = invocation.responses
-    items, works = tally(r)
+    # Ties keep the current pick, so mock decisions are deterministic.
+    items, works = tally(invocation.responses)
+    changed = sum(1 for item in items if item.dissenters)
+    tied = sum(1 for item in items if item.tie_break)
     summary = (
-        "(Mock) Everyone has approved the plan."
-        if works
-        else f"(Mock) {len(r.approved) if r else 0} approved, {len(r.denied) if r else 0} want changes, "
-        f"{len(r.pending) if r else 0} haven't answered."
+        "(Mock) Everyone picked the same options."
+        if not changed
+        else f"(Mock) The group went with the most popular option on {changed} item(s)"
+        + (f"; {tied} tie(s) kept the current pick." if tied else ".")
     )
     return Analysis(works_for_all=works, summary=summary, items=items)
 
 
 def mock_nudge(invocation: AgentInvocation) -> AgentMessage:
-    n = invocation.nudge
-    if n.kind == "Stay":
-        name = invocation.trip.name if invocation.trip else "this trip"
-        return AgentMessage(
-            message=f"(Mock) Sorry the plan isn't working for you. The group would miss you on {name}, and you can "
-            "still pick alternatives for anything you don't like. If you'd still rather leave, that's okay."
-        )
+    name = invocation.trip.name if invocation.trip else "this trip"
     return AgentMessage(
-        message=f"(Mock) {n.majority_count} of {n.total_responses} travelers chose {n.majority_choice} for {n.slot_title}, "
-        f"while you picked {n.user_choice}. Would you consider switching so everyone is on the same plan? It's your call."
+        message=f"(Mock) Sorry the plan isn't working for you. The group would miss you on {name}, and you can "
+        "still vote for alternatives for anything you don't like. If you'd still rather leave, that's okay."
     )

@@ -71,10 +71,6 @@ export class TripService {
     return firstValueFrom(this._http.post<TripDetail>(`/api/trips/${id}/responses`, { choices }));
   }
 
-  decideChange(id: string, requestId: string, approve: boolean): Promise<TripDetail> {
-    return this._post(id, `change-requests/${requestId}/${approve ? 'approve' : 'deny'}`);
-  }
-
   exitPreview(id: string): Promise<ExitPreview> {
     return firstValueFrom(this._http.post<ExitPreview>(`/api/trips/${id}/exit/preview`, {}));
   }

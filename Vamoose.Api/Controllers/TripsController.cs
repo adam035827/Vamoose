@@ -57,20 +57,6 @@ public class TripsController(
         return await trips.GetAsync(id, ct);
     }
 
-    [HttpPost("{id:guid}/change-requests/{requestId:guid}/approve")]
-    public async Task<TripDetailDto> ApproveChange(Guid id, Guid requestId, CancellationToken ct)
-    {
-        await agreement.DecideChangeAsync(id, requestId, approve: true, ct);
-        return await trips.GetAsync(id, ct);
-    }
-
-    [HttpPost("{id:guid}/change-requests/{requestId:guid}/deny")]
-    public async Task<TripDetailDto> DenyChange(Guid id, Guid requestId, CancellationToken ct)
-    {
-        await agreement.DecideChangeAsync(id, requestId, approve: false, ct);
-        return await trips.GetAsync(id, ct);
-    }
-
     [HttpPost("{id:guid}/exit/preview")]
     public Task<ExitPreviewDto> ExitPreview(Guid id, CancellationToken ct) => lifecycle.ExitPreviewAsync(id, ct);
 

@@ -83,16 +83,13 @@ public class LifecycleService(
             ctx.Me.Status = MemberStatus.Exited;
             ctx.Me.ExitedAt = DateTimeOffset.UtcNow;
             await db.PlanApprovals.Where(a => a.TripId == tripId && a.UserId == ctx.Me.UserId).ExecuteDeleteAsync(ct);
-            await db.ChangeRequests
-                .Where(r => r.TripId == tripId && r.RequestedByUserId == ctx.Me.UserId && r.Status == ChangeRequestStatus.Pending)
-                .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ChangeRequestStatus.Superseded), ct);
 
             // Only the primary user is told when someone leaves (requirements 4.5).
             notifications.Notify(trip.PrimaryUserId, tripId, NotificationTypes.MemberExited,
                 $"{ctx.Me.User.Email} left the trip \"{trip.Name}\".");
             notifications.TripChanged(ctx.OtherActiveMemberIds, tripId);
 
-            // Agreement is now measured among the remaining users.
+            // If everyone left has answered, the group's choices apply now.
             await agreement.EvaluateAsync(ctx, ct);
         }
 
@@ -119,7 +116,7 @@ public class LifecycleService(
         await notifications.FlushAsync(ct);
     }
 
-    // The primary user may lock even if some users still deny the plan; they can leave instead (requirements 4.6).
+    // The primary user may lock at any time, even before everyone has answered; travelers can leave instead (requirements 4.6).
     public async Task LockAsync(Guid tripId, CancellationToken ct)
     {
         var ctx = await access.LoadAsync(tripId, ct);
@@ -127,9 +124,6 @@ public class LifecycleService(
         TripAccess.RequireStatus(ctx, TripStatus.Agreement);
 
         ctx.Trip.Status = TripStatus.Locked;
-        await db.ChangeRequests
-            .Where(r => r.TripId == tripId && r.Status == ChangeRequestStatus.Pending)
-            .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ChangeRequestStatus.Superseded), ct);
         notifications.Notify(ctx.OtherActiveMemberIds, tripId, NotificationTypes.TripLocked,
             $"\"{ctx.Trip.Name}\" is locked. The final plan is ready to view.");
         await db.SaveChangesAsync(ct);

@@ -47,9 +47,6 @@ public class PlanService(
             .ToListAsync(ct);
         history.Reverse();
 
-        // Second (and last) nudge happens in the same chat session as the user keeps talking.
-        var nudge = canEdit ? null : await agreement.TakeSecondNudgeAsync(ctx, ct);
-
         var result = await agent.InvokeAsync(new AgentInvocation(
             AgentRequests.NewId(),
             AgentActions.Chat,
@@ -58,7 +55,6 @@ public class PlanService(
             Plan: trip.Items.Count > 0 ? AgentMapper.ToPlan(trip) : null,
             History: [.. history.Select(m => new AgentHistoryMessage(m.Role == ChatRole.User ? "user" : "agent", m.Content))],
             CanEditPlan: canEdit,
-            Nudge: nudge,
             TripId: tripId), ct);
 
         var now = DateTimeOffset.UtcNow;

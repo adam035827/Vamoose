@@ -22,10 +22,6 @@ export class ReviewPanel {
   protected readonly changes = computed(() =>
     this.trip().items.filter((i) => this.choices()[i.id] && this.choices()[i.id] !== i.selectedOptionId),
   );
-  protected readonly myPending = computed(() =>
-    this.trip().changeRequests.filter((r) => r.status === 'Pending'),
-  );
-  protected readonly isPrimary = computed(() => this.trip().myRole === 'Primary');
 
   // Travelers have 24 hours to respond to each version of the plan.
   private readonly _now = signal(Date.now());

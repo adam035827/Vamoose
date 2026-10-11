@@ -7,24 +7,13 @@
       <p class="review__deadline review__deadline--closed">The 24-hour response window for this plan has closed.</p>
     }
     <p class="muted">
-      Keep the plan's choice, or pick an alternative.
-      @if (isPrimary()) {
-        As the organizer, your picks change the plan directly.
-      } @else {
-        Alternatives go to {{ trip().primaryEmail }} to approve.
-      }
+      Keep the plan's choice, or pick an alternative. Once everyone has answered, each item goes with what most of
+      the group chose.
     </p>
-    @if (trip().myApproval === 'Approved') {
-      <p class="alert alert--info">✓ You approved this version of the plan. You can still change your answers.</p>
-    } @else if (trip().myApproval === 'Denied') {
-      <p class="alert alert--warning">You asked for changes. You'll be notified when the organizer decides.</p>
-    }
-    @if (!isPrimary() && myPending().length) {
-      <ul class="review__pending">
-        @for (r of myPending(); track r.id) {
-          <li>⏳ {{ r.itemTitle }}: {{ r.fromTitle }} → {{ r.toTitle }} (waiting for approval)</li>
-        }
-      </ul>
+    @if (trip().decided) {
+      <p class="alert alert--info">✓ Everyone has answered, and the plan now has the group's choices.</p>
+    } @else if (trip().myApproval) {
+      <p class="alert alert--info">✓ Thanks for answering. You can still change your answers until everyone is in.</p>
     }
     <button type="button" class="btn btn--ghost btn--small review__chat" (click)="openChat.emit()">
       💬 Questions? Ask the agent
@@ -78,7 +67,7 @@
         }
       </p>
       <button type="button" class="btn btn--primary" [disabled]="busy()" (click)="submit()">
-        {{ changes().length === 0 ? '✓ Approve the plan' : isPrimary() ? 'Apply my changes' : 'Request these changes' }}
+        {{ changes().length === 0 ? '✓ Keep the plan' : 'Vote for these changes' }}
       </button>
     </div>
   }

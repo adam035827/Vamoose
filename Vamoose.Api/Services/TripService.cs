@@ -162,13 +162,6 @@ public class TripService(
         var approvals = await db.PlanApprovals
             .Where(a => a.TripId == trip.Id && a.PlanVersion == trip.PlanVersion)
             .ToDictionaryAsync(a => a.UserId, a => a.Approved, ct);
-        var requests = await db.ChangeRequests
-            .Include(r => r.PlanItem).ThenInclude(i => i.Options)
-            .Include(r => r.RequestedBy)
-            .Where(r => r.TripId == trip.Id && (ctx.IsPrimary || r.RequestedByUserId == ctx.Me.UserId))
-            .OrderByDescending(r => r.CreatedAt)
-            .Take(30)
-            .ToListAsync(ct);
 
         string? ApprovalOf(Guid userId) => approvals.TryGetValue(userId, out var ok) ? (ok ? "Approved" : "Denied") : null;
 
@@ -200,16 +193,6 @@ public class TripService(
                     o.StartTime, o.EndTime, o.EnergyLevel, votes.Count(v => v.OptionId == o.Id)))]);
         }).ToList();
 
-        var changeRequests = requests.Select(r => new ChangeRequestDto(
-            r.Id,
-            r.PlanItemId,
-            r.PlanItem.Title,
-            r.RequestedBy.Email,
-            r.PlanItem.Options.FirstOrDefault(o => o.Id == r.FromOptionId)?.Title ?? "Previous option",
-            r.PlanItem.Options.FirstOrDefault(o => o.Id == r.ToOptionId)?.Title ?? "Alternative",
-            r.Status.ToString(),
-            r.CreatedAt)).ToList();
-
         var status = trip.Status;
         var primary = ctx.IsPrimary;
         var active = ctx.Me.Status == MemberStatus.Active;
@@ -219,7 +202,8 @@ public class TripService(
             CanEditPlan: primary && status is TripStatus.Planning or TripStatus.Agreement,
             CanAddMembers: primary && status is TripStatus.Planning or TripStatus.Agreement,
             CanSend: primary && status is TripStatus.Planning or TripStatus.Agreement && trip.Items.Count > 0,
-            CanRespond: active && status == TripStatus.Agreement && trip.Items.Count > 0 && windowOpen,
+            // The organizer's itinerary is their vote, so only travelers answer.
+            CanRespond: active && !primary && status == TripStatus.Agreement && trip.Items.Count > 0 && windowOpen,
             CanLock: primary && status == TripStatus.Agreement,
             CanUnlock: primary && status == TripStatus.Locked,
             CanReopen: primary && status == TripStatus.Cancelled,
@@ -238,11 +222,10 @@ public class TripService(
             ctx.Me.Role.ToString(),
             trip.PrimaryUser.Email,
             ApprovalOf(ctx.Me.UserId),
-            Consensus: AgreementService.HasConsensus(trip, activeIds, approvals),
+            Decided: trip.Status == TripStatus.Agreement && AgreementService.Decided(trip),
             trip.ResponseDeadline,
             members,
             items,
-            changeRequests,
             permissions);
     }
 

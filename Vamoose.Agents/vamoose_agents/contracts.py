@@ -118,16 +118,7 @@ class HistoryMessage(Contract):
 
 
 class NudgeContext(Contract):
-    kind: Literal["Majority", "Stay"] = Field(
-        description="Majority: the user is in the minority on one item (4.4). Stay: the user asked to leave (4.5)."
-    )
-    slot_title: str | None = Field(default=None, max_length=120)
-    user_choice: str | None = Field(default=None, max_length=200)
-    majority_choice: str | None = Field(default=None, max_length=200)
-    user_choice_count: int | None = Field(default=None, ge=0)
-    majority_count: int | None = Field(default=None, ge=0)
-    total_responses: int | None = Field(default=None, ge=1)
-    nudge_number: int | None = Field(default=None, ge=1, le=2)
+    kind: Literal["Stay"] = Field(description="Stay: the user asked to leave the trip (4.5).")
 
 
 class ParticipantChoice(Contract):
@@ -183,13 +174,16 @@ class QuestionSet(Contract):
 
 class ItemAnalysis(Contract):
     slot_key: str = Field(max_length=64)
-    approvers: list[str] = Field(max_length=100, description="Participants happy with the selected option.")
+    decision: str = Field(max_length=200, description="The option the group goes with: the one most people chose.")
+    tie_break: bool = Field(default=False, description="Two or more options had the most votes and the agent picked.")
+    reason: str | None = Field(default=None, max_length=300, description="Tie breaks only: why the agent picked it.")
+    approvers: list[str] = Field(max_length=100, description="Participants who chose the decision.")
     dissenters: list[str] = Field(max_length=100, description="Participants who chose something else.")
-    alternatives: list[str] = Field(max_length=4, description="Stored alternatives that would satisfy dissenters.")
+    alternatives: list[str] = Field(max_length=4, description="Other options the dissenters chose.")
 
 
 class Analysis(Contract):
-    """Structured output of the plan evaluator."""
+    """Structured output of the plan evaluator: the group's decision per slot, applied by the app."""
 
     works_for_all: bool
     summary: str = Field(min_length=1, max_length=1500)
@@ -237,6 +231,19 @@ class PlannerReply(Contract):
     changes: list[PlanChange] = Field(
         default_factory=list, max_length=40, description="Only slots that change. Empty when just asking or answering."
     )
+
+
+class TieBreak(Contract):
+    slot_key: str = Field(max_length=64)
+    option: str = Field(max_length=200, description="Exactly one of the tied options for this slot.")
+    reason: str = Field(min_length=1, max_length=300, description="One short sentence on why it suits the group.")
+
+
+class Resolution(Contract):
+    """What the evaluator model returns: picks for tied slots and a summary for the organizer."""
+
+    summary: str = Field(min_length=1, max_length=1500)
+    tie_breaks: list[TieBreak] = Field(default_factory=list, max_length=40)
 
 
 class ResearchResult(Contract):

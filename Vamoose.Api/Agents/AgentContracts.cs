@@ -15,7 +15,6 @@ public static class AgentActions
 
 public static class NudgeKinds
 {
-    public const string Majority = "Majority";
     public const string Stay = "Stay";
 }
 
@@ -55,15 +54,7 @@ public record AgentTripContext(
 
 public record AgentHistoryMessage(string Role, string Text);
 
-public record AgentNudgeContext(
-    string Kind,
-    string? SlotTitle = null,
-    string? UserChoice = null,
-    string? MajorityChoice = null,
-    int? UserChoiceCount = null,
-    int? MajorityCount = null,
-    int? TotalResponses = null,
-    int? NudgeNumber = null);
+public record AgentNudgeContext(string Kind);
 
 public record AgentParticipantChoice(string Participant, string Option);
 
@@ -86,7 +77,15 @@ public record AgentInvocation(
 
 public record AgentQuestion(string SlotKey, string Type, string Prompt, List<string> Options);
 
-public record AgentItemAnalysis(string SlotKey, List<string> Approvers, List<string> Dissenters, List<string> Alternatives);
+// Decision is the option title the group goes with; for ties (TieBreak) the agent picked it, with Reason.
+public record AgentItemAnalysis(
+    string SlotKey,
+    List<string> Approvers,
+    List<string> Dissenters,
+    List<string> Alternatives,
+    string? Decision = null,
+    bool TieBreak = false,
+    string? Reason = null);
 
 public record AgentAnalysis(bool WorksForAll, string Summary, List<AgentItemAnalysis>? Items);
 

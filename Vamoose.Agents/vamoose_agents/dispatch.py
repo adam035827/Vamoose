@@ -86,7 +86,7 @@ ROUTES: dict[str, Route] = {
         "DesigningQuestions", "Writing questions for the group", ("trip", "plan"), planner.questions, mock_data.mock_questions
     ),
     "Analyze": Route(
-        "Evaluating", "Checking whether the plan works for everyone", ("trip", "plan", "responses"),
+        "Evaluating", "Tallying the group's answers", ("trip", "plan", "responses"),
         planner.analyze, mock_data.mock_analysis,
     ),
     # Also used to persuade a traveler to stay when they try to leave (4.5).

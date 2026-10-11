@@ -1,4 +1,4 @@
-"""Vamoose agent actions beyond drafting: planning chat, preference questions, analysis and nudges.
+"""Vamoose agent actions beyond drafting: planning chat, preference questions, group decisions and nudges.
 
 Model roles: the planner model (Sonnet) builds and edits plans; the fast model (Haiku) handles everything short
 and well-defined, including parallel research assistants the planner delegates to.
@@ -9,6 +9,7 @@ import datetime as dt
 import json
 import logging
 import time
+from collections import Counter
 from typing import TypeVar
 
 from strands import Agent, tool
@@ -20,6 +21,7 @@ from .contracts import (
     Analysis,
     ChatReply,
     Contract,
+    ItemAnalysis,
     PlanChange,
     PlannerReply,
     PlanOption,
@@ -27,12 +29,13 @@ from .contracts import (
     Question,
     QuestionSet,
     ResearchResult,
+    Resolution,
     TripContext,
     TripPlan,
 )
 from .models import Models, as_models, model_id
 from .search import SearchFn, SearchSession
-from .voting import tally
+from .voting import tally, ties
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +96,7 @@ ANSWER_PROMPT = f"""You are the Vamoose agent answering someone in a group-trip 
 {UNTRUSTED}
 
 Answer questions about the plan and destination concisely in `message`.
-If <nudge> is present, the user is in the minority on one item: kindly explain how many others chose the majority
-option and the trade-offs, and invite them to switch. Be honest, never pressure or mislead, and make clear the choice
-is theirs. You cannot book, pay, invite people or contact anyone."""
+You cannot book, pay, invite people or contact anyone."""
 
 RESEARCH_PROMPT = f"""You research real options for ONE slot of a group trip plan.
 
@@ -114,24 +115,24 @@ Write exactly one question per slot in <current_plan>, using that slot's key and
 asks whether the recommended option works for the traveler and hints at what the alternatives offer. `options`
 has one short label per plan option of that slot, in the same order. Prompts are one friendly sentence."""
 
-ANALYZE_PROMPT = f"""You summarize group-trip plan responses for the organizer.
+ANALYZE_PROMPT = f"""You settle a group-trip plan from everyone's answers. The group goes with whatever most people chose.
 
 {UNTRUSTED}
 
-<tally> already has the exact counts per slot (approvers, dissenters, stored alternatives that would satisfy
-dissenters) and whether the plan works for everyone. Do not recount. Write 2-4 sentences in `message` with the
-outcome and one concrete suggestion. Use participant labels exactly as given; never invent alternatives."""
+<tally> already has the exact vote counts per slot and the decision for every slot with a clear winner. Do not
+recount and do not change those decisions.
+- For every slot listed in `ties`, two or more options got the most votes. Pick exactly one of those tied options in
+  `tie_breaks`, using the option title exactly as given. Choose what suits the group and the rest of the plan best
+  (cost, timing, energy, variety), with one short sentence of reason.
+- Write 2-4 sentences in `summary` for the organizer: what the group decided and how any ties were broken.
+  Use participant labels exactly as given; never invent options."""
 
 NUDGE_PROMPT = f"""You are the Vamoose agent writing one chat message to one traveler.
 
 {UNTRUSTED}
 
-If <nudge> kind is "Majority": tell them how many of the group chose the majority option versus theirs, give
-honest trade-offs of both, and invite them to switch so the group can agree. If nudge_number is 2, make it a
-brief, final, friendly note.
-If kind is "Stay": they asked to leave the trip. Warmly encourage them to stay: mention what they'd miss from the
-plan and that they can still pick alternatives.
-Either way, make clear the choice is theirs. Never pressure, guilt-trip, exaggerate or mislead. 2-4 sentences."""
+They asked to leave the trip (<nudge> kind "Stay"). Warmly encourage them to stay: mention what they'd miss from
+the plan and that they can still vote for alternatives. Make clear the choice is theirs. Never pressure, guilt-trip, exaggerate or mislead. 2-4 sentences."""
 
 PLAN_LIMITS = {"turns": 6, "output_tokens": 16000}
 DRAFT_LIMITS = {"turns": 3, "output_tokens": 6000}
@@ -160,8 +161,6 @@ def _conversation_blocks(invocation: AgentInvocation, today: dt.date) -> list[di
     if invocation.history:
         history = "\n".join(f"{m.role}: {m.text}" for m in invocation.history[-HISTORY_MESSAGES:])
         blocks.append({"text": f"<history>\n{history}\n</history>"})
-    if invocation.nudge:
-        blocks.append({"text": f"<nudge>\n{json.dumps(invocation.nudge.to_wire())}\n</nudge>"})
     blocks.append({"text": f"<message>\n{invocation.message}\n</message>"})
     return blocks
 
@@ -433,22 +432,44 @@ async def questions(invocation: AgentInvocation, model: Model | Models, today: d
 
 
 async def analyze(invocation: AgentInvocation, model: Model | Models, today: dt.date | None = None) -> Analysis:
+    """Majority decides each slot in code; the model only breaks ties and writes the summary."""
     items, works = tally(invocation.responses)
-    counts = {"worksForAll": works, "items": [item.to_wire() for item in items]}
+    tied = ties(invocation.responses)
+    slots = invocation.responses.slots if invocation.responses else []
+    counts = {
+        "pending": invocation.responses.pending if invocation.responses else [],
+        "slots": [
+            {
+                "slotKey": slot.key,
+                "title": slot.title,
+                "votes": Counter(c.option for c in slot.choices),
+                "decision": None if slot.key in tied else item.decision,
+            }
+            for slot, item in zip(slots, items)
+        ],
+        "ties": tied,
+    }
     try:
         blocks = _context_blocks(invocation, today or dt.date.today())
         blocks.append({"text": f"<tally>\n{json.dumps(counts)}\n</tally>"})
-        written = await _run(as_models(model).fast, "evaluator", ANALYZE_PROMPT, blocks, AgentMessage, [], SMALL_LIMITS)
-        summary = written.message
+        resolved = await _run(as_models(model).fast, "evaluator", ANALYZE_PROMPT, blocks, Resolution, [], SMALL_LIMITS)
+        items, works = tally(invocation.responses, {t.slot_key: t for t in resolved.tie_breaks})
+        summary = resolved.summary
     except Exception as ex:
-        logger.warning("Analysis summary fell back to a template: %s", type(ex).__name__)
-        dissent = sum(1 for item in items if item.dissenters)
-        summary = (
-            "Everyone is on board with the plan."
-            if works
-            else f"The plan doesn't work for everyone yet: {dissent} item(s) have travelers who prefer an alternative."
-        )
+        logger.warning("Decision summary fell back to a template: %s", type(ex).__name__)
+        summary = _decision_summary(items)
     return Analysis(works_for_all=works, summary=summary, items=items)
+
+
+def _decision_summary(items: list[ItemAnalysis]) -> str:
+    split = sum(1 for item in items if item.dissenters)
+    tied = sum(1 for item in items if item.tie_break)
+    summary = (
+        "Everyone picked the same options."
+        if not split
+        else f"The group went with the most popular option on {split} split item(s)."
+    )
+    return summary + (f" {tied} tie(s) kept the current pick." if tied else "")
 
 
 async def nudge(invocation: AgentInvocation, model: Model | Models, today: dt.date | None = None) -> AgentMessage:

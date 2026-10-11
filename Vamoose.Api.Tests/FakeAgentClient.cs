@@ -31,15 +31,27 @@ public class FakeAgentClient : IAgentClient
             AgentActions.Questions => new AgentResult(null, null,
                 [.. invocation.Plan!.Slots.Select(s => new AgentQuestion(s.Key, "SingleChoice", $"OK with {s.Title}?", [.. s.Options.Select(o => o.Title)]))], null),
             AgentActions.Analyze => new AgentResult(null, null, null, new AgentAnalysis(
-                invocation.Responses!.Denied.Count == 0 && invocation.Responses.Pending.Count == 0, "Summary.",
-                [.. invocation.Responses.Slots.Select(s => new AgentItemAnalysis(
-                    s.Key,
-                    [.. s.Choices.Where(c => c.Option == s.Selected).Select(c => c.Participant)],
-                    [.. s.Choices.Where(c => c.Option != s.Selected).Select(c => c.Participant)],
-                    []))])),
-            AgentActions.Nudge => new AgentResult(invocation.Nudge!.Kind == NudgeKinds.Stay ? "Please stay!" : "Most chose the apartment.", null, null, null),
+                false, "Summary.", [.. invocation.Responses!.Slots.Select(Decide)])),
+            AgentActions.Nudge => new AgentResult("Please stay!", null, null, null),
             _ => throw new AgentUnavailableException("Unknown action."),
         });
+    }
+
+    // Majority wins; ties go to the last tied option so tests can tell an agent pick from the current one.
+    private static AgentItemAnalysis Decide(AgentSlotResponses slot)
+    {
+        var votes = slot.Choices.GroupBy(c => c.Option).ToDictionary(g => g.Key, g => g.Count());
+        var top = votes.Values.DefaultIfEmpty(0).Max();
+        var leaders = new[] { slot.Selected }.Concat(slot.Alternatives).Where(o => votes.GetValueOrDefault(o) == top).ToList();
+        var decision = leaders.Count > 1 ? leaders[^1] : leaders.FirstOrDefault() ?? slot.Selected;
+        return new AgentItemAnalysis(
+            slot.Key,
+            [.. slot.Choices.Where(c => c.Option == decision).Select(c => c.Participant)],
+            [.. slot.Choices.Where(c => c.Option != decision).Select(c => c.Participant)],
+            [],
+            decision,
+            leaders.Count > 1,
+            leaders.Count > 1 ? "Better value." : null);
     }
 
     public static AgentTripPlan Plan()

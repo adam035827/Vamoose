@@ -73,16 +73,6 @@ public record PlanItemDto(
     Guid? MyChoiceOptionId,
     List<OptionDto> Options);
 
-public record ChangeRequestDto(
-    Guid Id,
-    Guid ItemId,
-    string ItemTitle,
-    string RequestedByEmail,
-    string FromTitle,
-    string ToTitle,
-    string Status,
-    DateTimeOffset CreatedAt);
-
 public record PermissionsDto(
     bool CanChat,
     bool CanEditPlan,
@@ -107,11 +97,10 @@ public record TripDetailDto(
     string MyRole,
     string PrimaryEmail,
     string? MyApproval,
-    bool Consensus,
+    bool Decided,
     DateTimeOffset? ResponseDeadline,
     List<MemberDto> Members,
     List<PlanItemDto> Items,
-    List<ChangeRequestDto> ChangeRequests,
     PermissionsDto Permissions);
 
 public record ChatMessageDto(Guid Id, string Role, string Content, DateTimeOffset CreatedAt);

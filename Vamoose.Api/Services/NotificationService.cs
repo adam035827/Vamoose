@@ -11,20 +11,13 @@ public static class NotificationTypes
 {
     public const string TripSent = "TripSent";
     public const string TripEdited = "TripEdited";
-    public const string ChangeRequested = "ChangeRequested";
-    public const string ChangeApproved = "ChangeApproved";
-    public const string ChangeDenied = "ChangeDenied";
     public const string MemberExited = "MemberExited";
     public const string MemberAdded = "MemberAdded";
     public const string TripCancelled = "TripCancelled";
     public const string TripReopened = "TripReopened";
     public const string TripLocked = "TripLocked";
     public const string TripUnlocked = "TripUnlocked";
-    public const string Nudge = "Nudge";
-    public const string Tie = "Tie";
-    public const string Consensus = "Consensus";
-    public const string Analysis = "Analysis";
-    public const string WindowClosed = "WindowClosed";
+    public const string PlanDecided = "PlanDecided";
 }
 
 // Users join a group named after their user id; the server pushes notifications and trip refresh signals.

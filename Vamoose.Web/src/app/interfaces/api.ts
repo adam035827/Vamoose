@@ -56,17 +56,6 @@ export interface PlanItem {
   options: PlanOption[];
 }
 
-export interface ChangeRequest {
-  id: string;
-  itemId: string;
-  itemTitle: string;
-  requestedByEmail: string;
-  fromTitle: string;
-  toTitle: string;
-  status: 'Pending' | 'Approved' | 'Denied' | 'Superseded';
-  createdAt: string;
-}
-
 export interface Permissions {
   canChat: boolean;
   canEditPlan: boolean;
@@ -92,11 +81,11 @@ export interface TripDetail {
   myRole: MemberRole;
   primaryEmail: string;
   myApproval: 'Approved' | 'Denied' | null;
-  consensus: boolean;
+  // Everyone answered (or the window closed) and the group's majority choices were applied.
+  decided: boolean;
   responseDeadline: string | null;
   members: Member[];
   items: PlanItem[];
-  changeRequests: ChangeRequest[];
   permissions: Permissions;
 }
 
