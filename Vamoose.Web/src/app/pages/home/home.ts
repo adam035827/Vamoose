@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { errorMessage } from '@functions/errors';
 import { StartIntro, TripSummary } from '@interfaces/api';
+import { MarkdownPipe } from '@pipes/markdown.pipe';
 import { AuthService } from '@services/auth.service';
 import { TripService } from '@services/trip.service';
 
@@ -23,7 +24,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // The home page is the agent (requirements 3.1): where to go, then who you are and who's going.
 @Component({
   selector: 'app-home',
-  imports: [FormsModule],
+  imports: [FormsModule, MarkdownPipe],
   templateUrl: './home.html',
   styleUrl: './home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

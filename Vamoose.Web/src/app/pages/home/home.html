@@ -37,11 +37,11 @@
   } 
   @else {
     <div class="convo">
-      <div class="msg msg--user"><p class="msg__bubble">{{ prompt() }}</p></div>
+      <div class="msg msg--user"><div class="msg__bubble md" [innerHTML]="prompt() | markdown"></div></div>
       @if (intro(); as i) {
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-          <p class="msg__bubble">{{ i.reply }}</p>
+          <div class="msg__bubble md" [innerHTML]="i.reply | markdown"></div>
         </div>
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />

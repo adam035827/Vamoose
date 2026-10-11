@@ -13,6 +13,7 @@
   --color-text: var(--color-brand-text);
   --color-text-muted: #61656b;
   --color-text-muted-on-dark: #b8bcc2;
+  --color-text-muted-on-page: #16191d;
   --color-primary: #0f766e;
   --color-primary-hover: #0b5f58;
   --color-primary-soft: #d9f0ed;
@@ -99,6 +100,92 @@ input::placeholder,
 textarea::placeholder {
   color: var(--color-input-placeholder);
   opacity: 1;
+}
+
+/* Rendered markdown (injected via [innerHTML], so styles must be global) */
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md pre,
+.md blockquote,
+.md table {
+  margin: 0 0 var(--space-2);
+}
+
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 1.05em;
+}
+
+.md ul,
+.md ol {
+  padding-left: 1.25em;
+}
+
+.md li + li {
+  margin-top: 2px;
+}
+
+.md a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.md code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 12%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.md pre {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: rgb(255 255 255 / 8%);
+  overflow-x: auto;
+}
+
+.md pre code {
+  padding: 0;
+  background: none;
+}
+
+.md blockquote {
+  padding-left: var(--space-2);
+  border-left: 3px solid currentColor;
+  opacity: 0.85;
+}
+
+.md hr {
+  border: 0;
+  border-top: 1px solid currentColor;
+  opacity: 0.3;
+  margin: var(--space-2) 0;
+}
+
+.md table {
+  display: block;
+  border-collapse: collapse;
+  overflow-x: auto;
+}
+
+.md th,
+.md td {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid rgb(255 255 255 / 20%);
+  text-align: left;
 }
 
 /* Shared building blocks */

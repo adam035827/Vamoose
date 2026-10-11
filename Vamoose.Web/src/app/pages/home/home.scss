@@ -69,6 +69,7 @@
 
   &__status {
     margin: 0;
+    color: var(--color-text-muted-on-page);
   }
 }
 
@@ -132,7 +133,6 @@
     border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
     background: var(--color-agent-bubble);
     color: var(--color-on-agent-bubble);
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 

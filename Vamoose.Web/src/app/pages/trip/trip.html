@@ -20,11 +20,11 @@
 
       @for (m of conversation(); track m.id) {
         @if (m.role === 'User') {
-          <div class="msg msg--user"><p class="msg__bubble">{{ m.content }}</p></div>
+          <div class="msg msg--user"><div class="msg__bubble md" [innerHTML]="m.content | markdown"></div></div>
         } @else {
           <div class="msg">
             <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-            <p class="msg__bubble">{{ m.content }}</p>
+            <div class="msg__bubble md" [innerHTML]="m.content | markdown"></div>
           </div>
         }
       }
@@ -71,7 +71,7 @@
       @if (sentNote(); as note) {
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-          <p class="msg__bubble">{{ note }}</p>
+          <div class="msg__bubble md" [innerHTML]="note | markdown"></div>
         </div>
       }
 
@@ -96,7 +96,7 @@
       @for (item of questions(); track item.id) {
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-          <p class="msg__bubble">{{ item.question ?? 'Which works best for ' + item.title + '?' }}</p>
+          <div class="msg__bubble md" [innerHTML]="item.question ?? 'Which works best for ' + item.title + '?' | markdown"></div>
         </div>
         <div class="msg__chips msg__chips--indent" role="group" [attr.aria-label]="item.title">
           @for (o of item.options; track o.id) {
@@ -113,19 +113,19 @@
           }
         </div>
         @if (chosenTitle(item); as chosen) {
-          <div class="msg msg--user"><p class="msg__bubble">{{ chosen }}</p></div>
+          <div class="msg msg--user"><div class="msg__bubble md" [innerHTML]="chosen | markdown"></div></div>
         }
       }
 
       @for (r of myRequests(); track r.id) {
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-          <p class="msg__bubble">{{ requestText(r) }}</p>
+          <div class="msg__bubble md" [innerHTML]="requestText(r) | markdown"></div>
         </div>
       }
 
       @if (pending(); as text) {
-        <div class="msg msg--user"><p class="msg__bubble">{{ text }}</p></div>
+        <div class="msg msg--user"><div class="msg__bubble md" [innerHTML]="text | markdown"></div></div>
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
           <p class="msg__bubble msg__bubble--thinking" role="status">The agent is thinking…</p>

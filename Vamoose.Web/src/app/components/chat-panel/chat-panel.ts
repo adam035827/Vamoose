@@ -14,6 +14,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { errorMessage } from '@functions/errors';
 import { ChatMessage } from '@interfaces/api';
+import { MarkdownPipe } from '@pipes/markdown.pipe';
 import { TripService } from '@services/trip.service';
 
 const PLANNING_PROMPTS = [
@@ -26,7 +27,7 @@ const TRAVELER_PROMPTS = ['What does the plan include?', 'How much will it cost 
 
 @Component({
   selector: 'app-chat-panel',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, MarkdownPipe],
   templateUrl: './chat-panel.html',
   styleUrl: './chat-panel.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

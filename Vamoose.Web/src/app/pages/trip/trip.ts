@@ -18,6 +18,7 @@ import { RouterLink } from '@angular/router';
 import { errorMessage } from '@functions/errors';
 import { CATEGORY_ICON, formatMoney, formatPrice, formatTime, groupByDay, selectedOption, timeLeft } from '@functions/format';
 import { ChangeRequest, ChatMessage, PlanItem, PlanOption, TripDetail } from '@interfaces/api';
+import { MarkdownPipe } from '@pipes/markdown.pipe';
 import { NotificationService } from '@services/notification.service';
 import { TripService } from '@services/trip.service';
 import { filter } from 'rxjs';
@@ -53,7 +54,7 @@ export interface PlanLine {
 // Continues the home page conversation for a created trip.
 @Component({
   selector: 'app-trip',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, MarkdownPipe],
   templateUrl: './trip.html',
   styleUrl: './trip.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

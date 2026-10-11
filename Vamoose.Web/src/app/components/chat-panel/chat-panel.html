@@ -17,14 +17,14 @@
 
     @for (m of messages(); track m.id) {
       <div class="msg" [class.msg--user]="m.role === 'User'">
-        <p class="msg__bubble">{{ m.content }}</p>
+        <div class="msg__bubble md" [innerHTML]="m.content | markdown"></div>
         <span class="msg__time">{{ m.createdAt | date: 'h:mm a' }}</span>
       </div>
     }
 
     @if (pending(); as text) {
       <div class="msg msg--user">
-        <p class="msg__bubble">{{ text }}</p>
+        <div class="msg__bubble md" [innerHTML]="text | markdown"></div>
       </div>
       <div class="msg">
         <p class="msg__bubble msg__bubble--typing" aria-label="The agent is thinking">
