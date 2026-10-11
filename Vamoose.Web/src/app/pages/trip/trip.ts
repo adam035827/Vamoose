@@ -250,7 +250,9 @@ export class TripPage {
     try {
       const [trip, messages] = await Promise.all([this._trips.get(this.id()), this._trips.chat(this.id())]);
       this.trip.set(trip);
-      this.messages.set(messages);
+      if (!this.pending()) {
+        this.messages.set(messages);
+      }
       void this.logMagicLinks(trip);
     } catch {
       // Keep showing the current state; the next change or reload will catch up.
@@ -314,7 +316,7 @@ export class TripPage {
     this.draft.set('');
     try {
       const response = await this._trips.sendMessage(this.id(), text);
-      this.messages.update((list) => [...list, ...response.messages]);
+      this.messages.update((list) => [...list, ...response.messages.filter((m) => !list.some((x) => x.id === m.id))]);
       if (response.planUpdated) {
         this.trip.set(await this._trips.get(this.id()));
       }
