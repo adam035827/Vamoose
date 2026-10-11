@@ -29,6 +29,101 @@
         }
       }
 
+      @if (plan(); as p) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <div class="msg__bubble msg__bubble--card">
+            <p class="plan__intro">Here's the plan:</p>
+            @for (day of p.days; track day.label) {
+              <p class="plan__day">{{ day.label }}</p>
+              <ul class="plan__list">
+                @for (line of day.lines; track line.id) {
+                  <li class="plan__line">
+                    <span class="plan__icon" aria-hidden="true">{{ line.icon }}</span>
+                    <span class="plan__title">
+                      {{ line.title }}
+                      @if (line.time) {
+                        <span class="plan__meta">{{ line.time }}</span>
+                      }
+                    </span>
+                    @if (line.price) {
+                      <span class="plan__price">{{ line.price }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+            @if (p.total) {
+              <p class="plan__total">Total ≈ {{ p.total }}</p>
+            }
+          </div>
+        </div>
+
+        @if (canSend()) {
+          <div class="msg__chips msg__chips--indent">
+            <button type="button" class="chip chip--primary" [disabled]="busy()" (click)="sendToGroup()">
+              Looks good — send to the group
+            </button>
+          </div>
+        }
+      }
+
+      @if (sentNote(); as note) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble">{{ note }}</p>
+        </div>
+      }
+
+      @for (r of pendingRequests(); track r.id) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble">{{ name(r.requestedByEmail) }} wants to swap {{ r.fromTitle }} for {{ r.toTitle }} ({{ r.itemTitle }}).</p>
+        </div>
+        <div class="msg__chips msg__chips--indent">
+          <button type="button" class="chip chip--primary" [disabled]="busy()" (click)="decide(r, true)">Approve</button>
+          <button type="button" class="chip" [disabled]="busy()" (click)="decide(r, false)">Deny</button>
+        </div>
+      }
+
+      @if (questions().length && remaining(); as left) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble">A few quick questions — you have {{ left }} left to answer.</p>
+        </div>
+      }
+
+      @for (item of questions(); track item.id) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble">{{ item.question ?? 'Which works best for ' + item.title + '?' }}</p>
+        </div>
+        <div class="msg__chips msg__chips--indent" role="group" [attr.aria-label]="item.title">
+          @for (o of item.options; track o.id) {
+            <button
+              type="button"
+              class="chip"
+              [class.chip--selected]="o.id === item.myChoiceOptionId"
+              [attr.aria-pressed]="o.id === item.myChoiceOptionId"
+              [disabled]="busy()"
+              (click)="answer(item, o.id)"
+            >
+              {{ o.title }}
+            </button>
+          }
+        </div>
+        @if (chosenTitle(item); as chosen) {
+          <div class="msg msg--user"><p class="msg__bubble">{{ chosen }}</p></div>
+        }
+      }
+
+      @for (r of myRequests(); track r.id) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble">{{ requestText(r) }}</p>
+        </div>
+      }
+
       @if (pending(); as text) {
         <div class="msg msg--user"><p class="msg__bubble">{{ text }}</p></div>
         <div class="msg">

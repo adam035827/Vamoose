@@ -113,11 +113,115 @@
       opacity: 0.7;
       font-style: italic;
     }
+
+    &--card {
+      flex: 1;
+      white-space: normal;
+    }
   }
 
   &--user &__bubble {
     border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
     background: var(--color-user-bubble);
     color: var(--color-on-user-bubble);
+  }
+
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+
+    &--indent {
+      padding-left: calc(32px + var(--space-2));
+    }
+  }
+}
+
+.chip {
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  &--primary,
+  &--selected {
+    border-color: var(--color-brand-accent);
+    background: var(--color-brand-accent);
+    color: var(--color-brand-text);
+  }
+}
+
+.plan {
+  &__intro,
+  &__day,
+  &__total {
+    margin: 0;
+  }
+
+  &__day {
+    margin-top: var(--space-3);
+    color: var(--color-brand-accent);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  &__list {
+    display: grid;
+    gap: var(--space-2);
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__line {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  &__icon {
+    flex: none;
+  }
+
+  &__title {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__meta {
+    color: var(--color-text-muted-on-dark);
+    font-size: 13px;
+  }
+
+  &__price {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__total {
+    margin-top: var(--space-3);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-text-muted);
+    font-weight: 700;
+    text-align: right;
   }
 }
