@@ -41,15 +41,7 @@
   }
 
   &__ask {
-    display: flex;
-    gap: var(--space-2);
-    width: 100%;
     margin-top: var(--space-3);
-    padding: var(--space-2);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-brand-text);
-    box-shadow: var(--shadow-pop);
   }
 
   &__input {
@@ -127,13 +119,9 @@
 
   &__avatar {
     flex: none;
-    display: grid;
-    place-items: center;
     width: 32px;
     height: 32px;
-    border-radius: 50%;
-    background: var(--color-primary);
-    color: var(--color-on-primary);
+    object-fit: contain;
   }
 
   &__bubble {
@@ -143,12 +131,12 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
     background: var(--color-agent-bubble);
+    color: var(--color-on-agent-bubble);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
 
   &--user &__bubble {
-    border-color: transparent;
     border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
     background: var(--color-user-bubble);
     color: var(--color-on-user-bubble);
@@ -162,6 +150,9 @@
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-4);
+  border-color: var(--color-border);
+  background: var(--color-brand-text);
+  color: var(--color-on-primary);
 
   &__travelers {
     resize: vertical;
@@ -169,6 +160,17 @@
 
   &__hint {
     font-size: 13px;
+  }
+
+  &__go {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-brand-text);
+
+    &:hover:not(:disabled) {
+      background: var(--color-accent);
+      filter: brightness(0.95);
+    }
   }
 
   &__actions {
