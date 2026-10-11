@@ -88,6 +88,7 @@ export interface TripDetail {
   notes: string | null;
   status: TripStatus;
   planVersion: number;
+  researchPending: boolean;
   myRole: MemberRole;
   primaryEmail: string;
   myApproval: 'Approved' | 'Denied' | null;

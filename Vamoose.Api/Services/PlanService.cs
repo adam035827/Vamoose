@@ -103,7 +103,23 @@ public class PlanService(
     public async Task ApplyResearchAsync(Guid tripId, int planVersion, CancellationToken ct)
     {
         var ctx = await access.LoadForSystemAsync(tripId, ct);
+        try
+        {
+            await ResearchAsync(ctx, planVersion, ct);
+        }
+        finally
+        {
+            // Cleared before notifying so refreshed pages see research as finished.
+            research.Complete(tripId);
+            notifications.TripChanged(ctx.ActiveMemberIds, tripId);
+            await notifications.FlushAsync(CancellationToken.None);
+        }
+    }
+
+    private async Task ResearchAsync(TripContext ctx, int planVersion, CancellationToken ct)
+    {
         var trip = ctx.Trip;
+        var tripId = trip.Id;
         if (!IsCurrent(trip, planVersion) || trip.Items.Count == 0)
         {
             return;
@@ -141,9 +157,7 @@ public class PlanService(
             Content = string.IsNullOrWhiteSpace(result.Reply) ? "I added real options and links to the plan." : result.Reply,
             CreatedAt = DateTimeOffset.UtcNow,
         });
-        notifications.TripChanged(ctx.ActiveMemberIds, tripId);
         await db.SaveChangesAsync(ct);
-        await notifications.FlushAsync(ct);
     }
 
     private static bool IsCurrent(Trip trip, int planVersion) => trip.Status == TripStatus.Planning && trip.PlanVersion == planVersion;

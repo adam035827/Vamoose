@@ -126,8 +126,9 @@ export class TripPage {
   });
   protected readonly canSend = computed(() => {
     const t = this.trip();
-    return !!t?.permissions.canSend && t.status === 'Planning' && t.items.length > 0;
+    return !!t?.permissions.canSend && t.status === 'Planning' && t.items.length > 0 && !t.researchPending;
   });
+  protected readonly researching = computed(() => this.isPrimary() && !!this.trip()?.researchPending);
   protected readonly remaining = computed(() => timeLeft(this.trip()?.responseDeadline ?? null, this._now()));
 
   protected readonly sentNote = computed(() => {

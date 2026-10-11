@@ -103,6 +103,7 @@ public record TripDetailDto(
     string? Notes,
     string Status,
     int PlanVersion,
+    bool ResearchPending,
     string MyRole,
     string PrimaryEmail,
     string? MyApproval,

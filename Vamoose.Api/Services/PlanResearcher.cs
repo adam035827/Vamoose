@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading.Channels;
 
 namespace Vamoose.Api.Services;
@@ -5,8 +6,17 @@ namespace Vamoose.Api.Services;
 public class PlanResearchQueue
 {
     private readonly Channel<(Guid TripId, int PlanVersion)> _jobs = Channel.CreateUnbounded<(Guid, int)>();
+    private readonly ConcurrentDictionary<Guid, byte> _pending = new();
 
-    public void Enqueue(Guid tripId, int planVersion) => _jobs.Writer.TryWrite((tripId, planVersion));
+    public void Enqueue(Guid tripId, int planVersion)
+    {
+        _pending[tripId] = 0;
+        _jobs.Writer.TryWrite((tripId, planVersion));
+    }
+
+    public bool IsPending(Guid tripId) => _pending.ContainsKey(tripId);
+
+    public void Complete(Guid tripId) => _pending.TryRemove(tripId, out _);
 
     public IAsyncEnumerable<(Guid TripId, int PlanVersion)> ReadAllAsync(CancellationToken ct) => _jobs.Reader.ReadAllAsync(ct);
 }
@@ -32,6 +42,7 @@ public class PlanResearcher(PlanResearchQueue queue, IServiceScopeFactory scopes
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
+            queue.Complete(tripId);
             logger.LogError(ex, "Plan research failed for trip {TripId}", tripId);
         }
     }

@@ -59,6 +59,13 @@
           </div>
         </div>
 
+        @if (researching()) {
+          <div class="msg">
+            <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+            <p class="msg__bubble msg__bubble--thinking" role="status">Finding real options and prices…</p>
+          </div>
+        }
+
         @if (canSend()) {
           <div class="msg__chips msg__chips--indent">
             <button type="button" class="chip chip--primary" [disabled]="busy()" (click)="sendToGroup()">

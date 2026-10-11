@@ -196,13 +196,15 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
     public async Task First_plan_gets_real_options_in_the_background_unless_the_plan_changed()
     {
         var (organizer, tripId) = await PlannedTripAsync();
+        Assert.True((await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}"))!.ResearchPending);
         var version = 0;
         await factory.RunAsync(async sp => version = (await sp.GetRequiredService<VamooseDbContext>().Trips.SingleAsync(t => t.Id == tripId)).PlanVersion);
 
         await factory.RunAsync(sp => sp.GetRequiredService<PlanService>().ApplyResearchAsync(tripId, version, CancellationToken.None));
 
         var trip = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
-        Assert.All(trip!.Items, i => Assert.Contains(i.Options, o => o.Title == "Researched pick" && o.SourceUrl == "https://example.com/real"));
+        Assert.False(trip!.ResearchPending);
+        Assert.All(trip.Items, i => Assert.Contains(i.Options, o => o.Title == "Researched pick" && o.SourceUrl == "https://example.com/real"));
         var chat = await organizer.GetFromJsonAsync<List<ChatMessageDto>>($"/api/trips/{tripId}/chat");
         Assert.Equal("I found real options.", chat!.Last().Content);
 
@@ -210,6 +212,28 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
         var researchCalls = factory.Agent.Calls.Count(c => c.Action == AgentActions.Research);
         await factory.RunAsync(sp => sp.GetRequiredService<PlanService>().ApplyResearchAsync(tripId, version, CancellationToken.None));
         Assert.Equal(researchCalls, factory.Agent.Calls.Count(c => c.Action == AgentActions.Research));
+    }
+
+    [Fact]
+    public async Task Research_is_no_longer_pending_when_the_agent_is_down()
+    {
+        var (organizer, tripId) = await PlannedTripAsync();
+        var version = 0;
+        await factory.RunAsync(async sp => version = (await sp.GetRequiredService<VamooseDbContext>().Trips.SingleAsync(t => t.Id == tripId)).PlanVersion);
+
+        factory.Agent.Down = true;
+        try
+        {
+            await factory.RunAsync(sp => sp.GetRequiredService<PlanService>().ApplyResearchAsync(tripId, version, CancellationToken.None));
+        }
+        finally
+        {
+            factory.Agent.Down = false;
+        }
+
+        var trip = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+        Assert.False(trip!.ResearchPending);
+        Assert.True(trip.Permissions.CanSend);
     }
 
     [Fact]

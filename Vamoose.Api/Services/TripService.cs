@@ -14,7 +14,8 @@ public class TripService(
     UserService users,
     IAgentClient agent,
     MagicLinkService magicLinks,
-    NotificationService notifications)
+    NotificationService notifications,
+    PlanResearchQueue research)
 {
     public async Task<IReadOnlyList<TripSummaryDto>> ListAsync(CancellationToken ct)
     {
@@ -233,6 +234,7 @@ public class TripService(
             trip.Notes,
             status.ToString(),
             trip.PlanVersion,
+            ResearchPending: status == TripStatus.Planning && research.IsPending(trip.Id),
             ctx.Me.Role.ToString(),
             trip.PrimaryUser.Email,
             ApprovalOf(ctx.Me.UserId),
