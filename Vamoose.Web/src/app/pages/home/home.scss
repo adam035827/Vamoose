@@ -154,6 +154,10 @@
   background: var(--color-brand-text);
   color: var(--color-on-primary);
 
+  .muted {
+    color: var(--color-text-muted-on-dark);
+  }
+
   &__travelers {
     resize: vertical;
   }

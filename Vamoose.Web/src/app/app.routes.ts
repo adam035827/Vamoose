@@ -7,7 +7,7 @@ export const routes: Routes = [
   { path: 'home', component: Home },
   { path: 't/:token', loadComponent: () => import('./pages/magic-link/magic-link').then((m) => m.MagicLink) },
   {
-    path: 'trips/:id',
+    path: 'trip/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/trip/trip').then((m) => m.TripPage),
   },

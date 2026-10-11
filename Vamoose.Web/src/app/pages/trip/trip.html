@@ -1,130 +1,69 @@
-@if (loading() && !trip()) {
-  <div class="trip-state muted">Loading trip…</div>
-} @else if (gone()) {
-  <div class="trip-state">
-    <div class="trip-state__card card">
-      <h1>This trip isn't available</h1>
-      <p class="muted">It may have been cancelled, or you're no longer part of it.</p>
-      <a class="btn btn--primary" routerLink="/">Back to your trips</a>
+<section class="page">
+  <header class="page__head">
+    <a class="page__back" routerLink="/home" aria-label="Start a new trip">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+        <path d="M19 12H5M12 19l-7-7 7-7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </a>
+  </header>
+
+  @if (gone()) {
+    <div class="page__state">
+      <p>This trip isn't available.</p>
+      <a class="btn btn--primary" routerLink="/home">Plan a new trip</a>
     </div>
-  </div>
-} @else if (trip(); as t) {
-  <section class="trip">
-    <header class="trip__head">
-      <a class="trip__back" routerLink="/" aria-label="Back to your trips">←</a>
-      <div class="trip__heading">
-        <div class="trip__title-row">
-          <h1 class="trip__title">{{ t.name }}</h1>
-          <span class="badge badge--{{ t.status }}">{{ t.status === 'Agreement' ? 'Group review' : t.status }}</span>
-        </div>
-        <p class="trip__meta muted">
-          📍 {{ t.destination }}
-          @if (t.startDate) {
-            · {{ t.startDate | date: 'MMM d' }}@if (t.endDate) { – {{ t.endDate | date: 'MMM d, y' }} }
-          }
-          · {{ isPrimary() ? 'You organize this trip' : 'Organized by ' + t.primaryEmail }}
-        </p>
-      </div>
-      <div class="trip__actions">
-        @if (t.permissions.canSend) {
-          <button type="button" class="btn btn--primary btn--small" [disabled]="busy()" (click)="send()">
-            {{ t.status === 'Planning' ? 'Finalize & send' : 'Send again' }}
-          </button>
-        }
-        @if (t.permissions.canLock) {
-          <button type="button" class="btn btn--small" [class.btn--primary]="t.consensus" [disabled]="busy()" (click)="lock()">
-            🔒 Lock trip
-          </button>
-        }
-        @if (t.permissions.canUnlock) {
-          <button type="button" class="btn btn--small" [disabled]="busy()" (click)="unlock()">Unlock</button>
-        }
-        @if (t.permissions.canReopen) {
-          <button type="button" class="btn btn--primary btn--small" [disabled]="busy()" (click)="reopen()">Reopen trip</button>
-        }
-        @if (t.permissions.canExit) {
-          <button type="button" class="btn btn--ghost btn--small trip__exit" [disabled]="busy()" (click)="startExit()">
-            {{ isPrimary() ? 'Cancel trip' : 'Leave trip' }}
-          </button>
-        }
-      </div>
-    </header>
-
-    @if (stage(); as s) {
-      <p class="trip__stage trip__stage--{{ s.tone }}">{{ s.text }}</p>
-    }
-    @if (error()) {
-      <p class="alert trip__error" role="alert">{{ error() }}</p>
-    }
-
-    <nav class="tabs" aria-label="Trip sections">
-      @for (item of tabs(); track item.id) {
-        <button
-          type="button"
-          class="tabs__tab"
-          [class.tabs__tab--active]="tab() === item.id"
-          [class.tabs__tab--chat]="item.id === 'chat'"
-          [attr.aria-current]="tab() === item.id ? 'page' : null"
-          (click)="selectTab(item.id)"
-        >
-          {{ item.label }}
-          @if (item.count) {
-            <span class="tabs__count">{{ item.count }}</span>
-          }
-        </button>
+  } @else {
+    <div class="convo" aria-live="polite">
+      @if (loading() && !messages().length) {
+        <p class="muted page__status" role="status">Loading your trip…</p>
       }
-    </nav>
 
-    <div class="trip__body" [class.trip__body--chat]="tab() === 'chat'">
-      <div class="trip__chat">
-        <app-chat-panel
-          [tripId]="t.id"
-          [canChat]="t.permissions.canChat"
-          [canEdit]="t.permissions.canEditPlan"
-          [version]="chatVersion()"
-          (planUpdated)="onPlanUpdated()"
-        />
-      </div>
-      <div class="trip__side">
-        @switch (tab() === 'chat' ? 'plan' : tab()) {
-          @case ('plan') {
-            <app-plan-panel [trip]="t" [busy]="busy()" (selectOption)="select($event)" />
-          }
-          @case ('review') {
-            <app-review-panel [trip]="t" [busy]="busy()" (submitChoices)="respond($event)" (openChat)="selectTab('chat')" />
-          }
-          @case ('requests') {
-            <app-requests-panel [trip]="t" [busy]="busy()" (decide)="decide($event)" />
-          }
-          @case ('people') {
-            <app-people-panel [trip]="t" [busy]="busy()" (addMember)="addMember($event)" />
-          }
-        }
-      </div>
-    </div>
-  </section>
-
-  @if (exitPreview(); as p) {
-    <div class="dialog-backdrop" (click)="stay()">
-      <div class="dialog card" role="dialog" aria-modal="true" aria-labelledby="exit-title" (click)="$event.stopPropagation()">
-        <h2 id="exit-title">{{ p.cancelsTrip ? 'Cancel this trip?' : 'Before you go…' }}</h2>
-        @if (p.cancelsTrip) {
-          <p>{{ p.message }}</p>
+      @for (m of conversation(); track m.id) {
+        @if (m.role === 'User') {
+          <div class="msg msg--user"><p class="msg__bubble">{{ m.content }}</p></div>
         } @else {
-          <div class="dialog__agent">
-            <span class="dialog__avatar" aria-hidden="true">✈</span>
-            <p>{{ p.message }}</p>
+          <div class="msg">
+            <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+            <p class="msg__bubble">{{ m.content }}</p>
           </div>
         }
-        <div class="dialog__actions">
-          <button type="button" class="btn btn--primary" (click)="stay()">{{ p.cancelsTrip ? 'Keep the trip' : 'Stay on the trip' }}</button>
-          <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="confirmExit()">
-            {{ p.cancelsTrip ? 'Cancel trip' : 'Leave anyway' }}
-          </button>
+      }
+
+      @if (pending(); as text) {
+        <div class="msg msg--user"><p class="msg__bubble">{{ text }}</p></div>
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble msg__bubble--thinking" role="status">The agent is thinking…</p>
         </div>
-      </div>
+      }
     </div>
+
+    @if (error()) {
+      <p class="alert" role="alert">
+        {{ error() }}
+        @if (failed()) {
+          <button type="button" class="btn btn--small" (click)="retry()">Try again</button>
+        }
+      </p>
+    }
+
+    <form class="input-shell page__composer" (ngSubmit)="send()">
+      <label class="sr-only" for="trip-message">Message the Vamoose agent</label>
+      <input
+        #messageInput
+        id="trip-message"
+        class="input page__input"
+        name="message"
+        maxlength="4000"
+        autocomplete="off"
+        placeholder="Ask the agent to plan or change something…"
+        [ngModel]="draft()"
+        (ngModelChange)="draft.set($event)"
+        [disabled]="!!pending()"
+      />
+      @if (draft().trim()) {
+        <button type="submit" class="btn btn--primary page__go" [disabled]="!!pending()">Go</button>
+      }
+    </form>
   }
-} @else if (error()) {
-  <div class="trip-state"><p class="alert">{{ error() }}</p></div>
-}
+</section>

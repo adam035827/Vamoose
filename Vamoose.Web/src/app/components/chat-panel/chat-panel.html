@@ -1,14 +1,4 @@
 <section class="chat card" aria-label="Chat with the Vamoose agent">
-  <header class="chat__head">
-    <span class="chat__avatar" aria-hidden="true">✈</span>
-    <div>
-      <h2 class="chat__title">Vamoose agent</h2>
-      <p class="chat__subtitle muted">
-        {{ canEdit() ? 'Plans with live web search. Ask for options, changes, or alternatives.' : 'Ask anything about the plan.' }}
-      </p>
-    </div>
-  </header>
-
   <div class="chat__scroller" #scroller>
     @if (messages().length === 0 && !pending()) {
       <div class="chat__empty">

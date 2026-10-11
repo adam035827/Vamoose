@@ -57,17 +57,11 @@
               <span class="field__label">Who all is going?</span>
               <div class="input-shell">
                 <textarea class="input who__travelers" name="travelers" rows="2" placeholder="ana@example.com, ben@example.com"
-                  [ngModel]="travelerInput()" (ngModelChange)="travelerInput.set($event)" [disabled]="step() === 'starting'"></textarea>
+                  [ngModel]="travelerInput()" (ngModelChange)="travelerInput.set($event); travelersBlurred.set(false)" (blur)="travelersBlurred.set(true)" [disabled]="step() === 'starting'"></textarea>
               </div>
               <span class="muted who__hint">Separate emails with commas. Everyone gets their own link once you send the trip.</span>
             </label>
-            @if (travelers().length) {
-              <ul class="chips" aria-label="Travelers">
-                @for (t of travelers(); track t) {
-                  <li class="chip" [class.chip--bad]="invalidTravelers().includes(t)">{{ t }}</li>
-                }
-              </ul>
-            }
+
             @if (invalidTravelers().length) {
               <p class="alert" role="alert">Fix the highlighted email addresses.</p>
             }

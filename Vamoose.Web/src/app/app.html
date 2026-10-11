@@ -1,18 +1,4 @@
-@if (user(); as u) {
-  <header class="app-header">
-    <a class="app-header__brand" routerLink="/">
-      <span class="app-header__logo" aria-hidden="true">✈</span>
-      <span>Vamoose</span>
-    </a>
-    <div class="app-header__actions">
-      <app-notification-bell />
-      <span class="app-header__email">{{ u.email }}</span>
-      <button type="button" class="btn btn--ghost btn--small" (click)="logout()">Log out</button>
-    </div>
-  </header>
-}
-
-<main class="app-main" [class.app-main--bare]="!user()">
+<main class="app-main">
   <router-outlet />
 </main>
 

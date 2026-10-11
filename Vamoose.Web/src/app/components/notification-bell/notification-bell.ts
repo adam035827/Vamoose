@@ -35,7 +35,7 @@ export class NotificationBell {
     this.open.set(false);
     void this._notifications.markRead(n.id);
     if (n.tripId) {
-      void this._router.navigate(['/trips', n.tripId]);
+      void this._router.navigate(['/trip', n.tripId]);
     }
   }
 

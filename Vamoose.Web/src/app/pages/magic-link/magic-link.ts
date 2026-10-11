@@ -48,7 +48,7 @@ export class MagicLink implements OnInit {
   async ngOnInit(): Promise<void> {
     try {
       const result = await this._auth.openMagicLink(this.token());
-      await this._router.navigate(['/trips', result.tripId], { replaceUrl: true });
+      await this._router.navigate(['/trip', result.tripId], { replaceUrl: true });
     } catch (e) {
       this.error.set(errorMessage(e));
     }

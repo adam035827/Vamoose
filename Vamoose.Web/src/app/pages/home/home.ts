@@ -40,6 +40,7 @@ export class Home implements OnInit {
   protected readonly intro = signal<StartIntro | null>(null);
   protected readonly organizerEmail = signal('');
   protected readonly travelerInput = signal('');
+  protected readonly travelersBlurred = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly trips = signal<TripSummary[]>([]);
   protected readonly user = this._auth.user;
@@ -51,10 +52,11 @@ export class Home implements OnInit {
   protected readonly travelers = computed(() =>
     [...new Set(this.travelerInput().split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))],
   );
-  protected readonly invalidTravelers = computed(() => this.travelers().filter((e) => !EMAIL.test(e)));
+  private readonly _invalidTravelers = computed(() => this.travelers().filter((e) => !EMAIL.test(e)));
+  protected readonly invalidTravelers = computed(() => (this.travelersBlurred() ? this._invalidTravelers() : []));
   protected readonly organizerValid = computed(() => EMAIL.test(this.organizerEmail().trim()));
   protected readonly canStart = computed(
-    () => this.organizerValid() && this.invalidTravelers().length === 0 && this.step() === 'who',
+    () => this.organizerValid() && this._invalidTravelers().length === 0 && this.step() === 'who',
   );
 
   async ngOnInit(): Promise<void> {
@@ -100,7 +102,7 @@ export class Home implements OnInit {
         travelerEmails: this.travelers(),
       });
       this._auth.setUser(result.user);
-      await this._router.navigate(['/trips', result.tripId]);
+      await this._router.navigate(['/trip', result.tripId]);
     } catch (e) {
       this.error.set(errorMessage(e));
       this.step.set('who');
