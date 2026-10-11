@@ -100,28 +100,29 @@
         </div>
       }
 
-      @for (item of questions(); track item.id) {
+      @for (step of steps(); track step.item.id) {
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-          <div class="msg__bubble md" [innerHTML]="item.question ?? 'Which works best for ' + item.title + '?' | markdown"></div>
+          <div class="msg__bubble md" [innerHTML]="step.item.question ?? 'Which works best for ' + step.item.title + '?' | markdown"></div>
         </div>
-        <div class="msg__chips msg__chips--indent" role="group" [attr.aria-label]="item.title">
-          @for (o of item.options; track o.id) {
-            <button
-              type="button"
-              class="chip"
-              [class.chip--selected]="o.id === item.myChoiceOptionId"
-              [attr.aria-pressed]="o.id === item.myChoiceOptionId"
-              [disabled]="busy()"
-              (click)="answer(item, o.id)"
-            >
-              {{ o.title }}
-            </button>
-          }
-        </div>
-        @if (chosenTitle(item); as chosen) {
+        @if (step.chosen; as chosen) {
           <div class="msg msg--user"><div class="msg__bubble md" [innerHTML]="chosen | markdown"></div></div>
+        } @else {
+          <div class="msg__chips msg__chips--indent" role="group" [attr.aria-label]="step.item.title">
+            @for (o of step.item.options; track o.id) {
+              <button type="button" class="chip" [disabled]="busy()" (click)="answer(step.item, o.id)">
+                {{ o.title }}
+              </button>
+            }
+          </div>
         }
+      }
+
+      @if (submitting()) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble msg__bubble--thinking" role="status">Sending your answers…</p>
+        </div>
       }
 
       @for (r of myRequests(); track r.id) {

@@ -150,6 +150,27 @@ export class TripPage {
     return t.items.filter((i) => i.options.length > 0);
   });
 
+  // Answers held locally until every question is answered, then submitted together.
+  private readonly _answers = signal<Record<string, string>>({});
+
+  // Questions revealed so far: every answered one plus the first unanswered.
+  protected readonly steps = computed(() => {
+    const answers = this._answers();
+    const steps: { item: PlanItem; chosen: string | null }[] = [];
+    for (const item of this.questions()) {
+      const chosenId = item.myChoiceOptionId ?? answers[item.id] ?? null;
+      steps.push({ item, chosen: item.options.find((o) => o.id === chosenId)?.title ?? null });
+      if (!chosenId) {
+        break;
+      }
+    }
+    return steps;
+  });
+
+  protected readonly submitting = computed(
+    () => this.busy() && this.questions().length > 0 && this.questions().every((i) => !i.myChoiceOptionId && this._answers()[i.id]),
+  );
+
   protected readonly pendingRequests = computed(() => {
     const t = this.trip();
     if (!t || !this.isPrimary() || t.status !== 'Agreement') {
@@ -184,6 +205,7 @@ export class TripPage {
       this.messages();
       this.pending();
       this.trip();
+      this.steps();
       // Travelers arriving from their magic link land on the questions first.
       const first = this._firstQuestion()?.nativeElement;
       if (first && !this._landedOnQuestions) {
@@ -299,27 +321,30 @@ export class TripPage {
     }
   }
 
-  protected chosenTitle(item: PlanItem): string | null {
-    return item.options.find((o) => o.id === item.myChoiceOptionId)?.title ?? null;
-  }
-
   protected sendToGroup(): Promise<void> {
     return this.act(() => this._trips.send(this.id()));
   }
 
-  // The API treats missing items as accepting the current pick, so always send every answer.
-  protected answer(item: PlanItem, optionId: string): Promise<void> {
-    const t = this.trip();
-    if (!t || item.myChoiceOptionId === optionId) {
-      return Promise.resolve();
+  protected async answer(item: PlanItem, optionId: string): Promise<void> {
+    if (this.busy()) {
+      return;
     }
-    const choices = t.items
-      .filter((i) => i.options.length > 0)
-      .map((i) => ({
-        itemId: i.id,
-        optionId: i.id === item.id ? optionId : (i.myChoiceOptionId ?? i.selectedOptionId ?? i.options[0].id),
-      }));
-    return this.act(() => this._trips.respond(this.id(), choices));
+    this._answers.update((a) => ({ ...a, [item.id]: optionId }));
+    const answers = this._answers();
+    const questions = this.questions();
+    if (!questions.every((i) => i.myChoiceOptionId ?? answers[i.id])) {
+      return;
+    }
+    const choices = questions.map((i) => ({ itemId: i.id, optionId: answers[i.id] ?? i.myChoiceOptionId ?? '' }));
+    await this.act(() => this._trips.respond(this.id(), choices));
+    // On failure, reopen the last question so the traveler can resubmit.
+    if (this.error()) {
+      this._answers.update((a) => {
+        const rest = { ...a };
+        delete rest[item.id];
+        return rest;
+      });
+    }
   }
 
   protected decide(request: ChangeRequest, approve: boolean): Promise<void> {
