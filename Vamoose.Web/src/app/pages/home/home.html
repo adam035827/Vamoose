@@ -59,7 +59,7 @@
                 <textarea class="input who__travelers" name="travelers" rows="2" placeholder="ana@example.com, ben@example.com"
                   [ngModel]="travelerInput()" (ngModelChange)="travelerInput.set($event); travelersBlurred.set(false)" (blur)="travelersBlurred.set(true)" [disabled]="step() === 'starting'"></textarea>
               </div>
-              <span class="muted who__hint">Separate emails with commas. Everyone gets their own link once you send the trip.</span>
+              <span class="muted who__hint">Separate emails with commas. Everyone gets their own link right away, and sees your questions once you send the trip.</span>
             </label>
 
             @if (invalidTravelers().length) {

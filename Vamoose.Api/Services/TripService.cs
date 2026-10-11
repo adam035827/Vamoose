@@ -86,7 +86,12 @@ public class TripService(
         }
 
         db.Trips.Add(trip);
-        await magicLinks.SendAsync(trip, trip.Members[0], ct);
+
+        // Everyone gets their link as soon as they're added; travelers wait in the trip until it's sent.
+        foreach (var member in trip.Members)
+        {
+            await magicLinks.SendAsync(trip, member, ct);
+        }
         await db.SaveChangesAsync(ct);
         return (trip, organizer);
     }
@@ -122,15 +127,29 @@ public class TripService(
             member.ExitedAt = null;
         }
 
-        // Travelers get their magic link once the trip has been sent.
+        await magicLinks.SendAsync(ctx.Trip, member, ct);
         if (ctx.Trip.SentAt != null)
         {
-            await magicLinks.SendAsync(ctx.Trip, member, ct);
             notifications.Notify(user.Id, tripId, NotificationTypes.MemberAdded, $"You were added to the trip \"{ctx.Trip.Name}\".");
         }
         notifications.TripChanged(ctx.ActiveMemberIds, tripId);
         await db.SaveChangesAsync(ct);
         await notifications.FlushAsync(ct);
+    }
+
+    // Each active member's magic link, for the organizer's browser console in development.
+    public async Task<IReadOnlyList<MagicLinkDto>> MagicLinksAsync(Guid tripId, CancellationToken ct)
+    {
+        if (!magicLinks.ExposeLinks)
+        {
+            throw new NotFoundException();
+        }
+        var ctx = await access.LoadAsync(tripId, ct);
+        TripAccess.RequirePrimary(ctx);
+        return [.. ctx.ActiveMembers
+            .OrderBy(m => m.Role)
+            .ThenBy(m => m.AddedAt)
+            .Select(m => new MagicLinkDto(m.User.Email, m.Role.ToString(), magicLinks.LinkFor(m)))];
     }
 
     private async Task<TripDetailDto> MapAsync(TripContext ctx, CancellationToken ct)
@@ -160,7 +179,9 @@ public class TripService(
             .Select(m => new MemberDto(m.UserId, m.User.Email, m.Role.ToString(), m.Status.ToString(), ApprovalOf(m.UserId)))
             .ToList();
 
-        var items = trip.Items.Select(i =>
+        // Travelers wait until the organizer sends the trip; the draft plan stays private until then.
+        var waiting = !ctx.IsPrimary && trip.SentAt == null;
+        List<PlanItemDto> items = waiting ? [] : trip.Items.Select(i =>
         {
             var votes = choices.Where(c => c.PlanItemId == i.Id && activeIds.Contains(c.UserId)).ToList();
             return new PlanItemDto(
@@ -193,7 +214,7 @@ public class TripService(
         var active = ctx.Me.Status == MemberStatus.Active;
         var windowOpen = AgreementService.WindowOpen(trip);
         var permissions = new PermissionsDto(
-            CanChat: active && status != TripStatus.Cancelled,
+            CanChat: active && status != TripStatus.Cancelled && !waiting,
             CanEditPlan: primary && status is TripStatus.Planning or TripStatus.Agreement,
             CanAddMembers: primary && status is TripStatus.Planning or TripStatus.Agreement,
             CanSend: primary && status is TripStatus.Planning or TripStatus.Agreement && trip.Items.Count > 0,

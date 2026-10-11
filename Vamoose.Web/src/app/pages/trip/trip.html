@@ -68,6 +68,13 @@
         }
       }
 
+      @if (waitingNote(); as note) {
+        <div class="msg">
+          <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
+          <p class="msg__bubble" role="status">{{ note }}</p>
+        </div>
+      }
+
       @if (sentNote(); as note) {
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
@@ -87,7 +94,7 @@
       }
 
       @if (questions().length && remaining(); as left) {
-        <div class="msg">
+        <div class="msg" #firstQuestion>
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
           <p class="msg__bubble">A few quick questions — you have {{ left }} left to answer.</p>
         </div>
@@ -142,6 +149,7 @@
       </p>
     }
 
+    @if (trip()?.permissions?.canChat) {
     <form class="input-shell page__composer" (ngSubmit)="send()">
       <label class="sr-only" for="trip-message">Message the Vamoose agent</label>
       <input
@@ -160,5 +168,6 @@
         <button type="submit" class="btn btn--primary page__go" [disabled]="!!pending()">Go</button>
       }
     </form>
+    }
   }
 </section>

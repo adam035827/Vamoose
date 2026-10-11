@@ -58,7 +58,7 @@ public class TripAccess(VamooseDbContext db, CurrentUser currentUser)
 
     public static bool CanSee(Trip trip, TripMember me) =>
         me.Role == MemberRole.Primary
-        || (me.Status == MemberStatus.Active && trip.SentAt != null && trip.Status != TripStatus.Cancelled);
+        || (me.Status == MemberStatus.Active && trip.Status != TripStatus.Cancelled);
 
     public static void RequirePrimary(TripContext ctx)
     {

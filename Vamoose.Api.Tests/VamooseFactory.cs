@@ -29,6 +29,7 @@ public partial class VamooseFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Vamoose", "unused");
+        builder.UseSetting("App:ExposeMagicLinks", "true");
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<VamooseDbContext>>();

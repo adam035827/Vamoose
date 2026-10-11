@@ -20,6 +20,9 @@ public class TripsController(
     [HttpGet("{id:guid}")]
     public Task<TripDetailDto> Get(Guid id, CancellationToken ct) => trips.GetAsync(id, ct);
 
+    [HttpGet("{id:guid}/magic-links")]
+    public Task<IReadOnlyList<MagicLinkDto>> MagicLinks(Guid id, CancellationToken ct) => trips.MagicLinksAsync(id, ct);
+
     [HttpPost("{id:guid}/members")]
     public async Task<TripDetailDto> AddMember(Guid id, AddMemberRequest request, CancellationToken ct)
     {

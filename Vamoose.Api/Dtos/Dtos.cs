@@ -21,6 +21,8 @@ public record StartTripRequest(
 
 public record StartTripResponse(Guid TripId, UserDto User);
 
+public record MagicLinkDto(string Email, string Role, string Link);
+
 public record AddMemberRequest([Required, EmailAddress, MaxLength(254)] string Email);
 
 public record ChatRequest([Required, MinLength(1), MaxLength(4000)] string Message);

@@ -12,7 +12,7 @@ namespace Vamoose.Api.Tests;
 public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactory>
 {
     [Fact]
-    public async Task Starting_a_trip_creates_members_signs_in_organizer_and_emails_only_their_link()
+    public async Task Starting_a_trip_creates_members_signs_in_organizer_and_sends_everyone_a_link()
     {
         var organizer = VamooseFactory.NewEmail("org");
         var traveler = VamooseFactory.NewEmail("ana");
@@ -24,7 +24,7 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
         Assert.Equal("Primary", trip.MyRole);
         Assert.Equal(2, trip.Members.Count);
         Assert.NotNull(VamooseFactory.MagicTokenFor(organizer));
-        Assert.Null(VamooseFactory.MagicTokenFor(traveler));
+        Assert.NotNull(VamooseFactory.MagicTokenFor(traveler));
 
         var chat = await client.GetFromJsonAsync<List<ChatMessageDto>>($"/api/trips/{tripId}/chat");
         Assert.Equal(["User", "Agent"], chat!.Select(m => m.Role));
@@ -56,18 +56,47 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
     }
 
     [Fact]
-    public async Task Sending_emails_travelers_their_links_and_opens_a_24_hour_window()
+    public async Task Traveler_link_opens_a_waiting_trip_before_it_is_sent()
+    {
+        var traveler = VamooseFactory.NewEmail("ben");
+        var (_, tripId) = await PlannedTripAsync(traveler);
+
+        var travelerClient = await factory.OpenMagicLinkAsync(traveler);
+        var seen = await travelerClient.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+
+        Assert.Equal("Planning", seen!.Status);
+        Assert.Empty(seen.Items);
+        Assert.False(seen.Permissions.CanChat);
+        Assert.False(seen.Permissions.CanRespond);
+        var chat = await travelerClient.PostAsJsonAsync($"/api/trips/{tripId}/chat", new ChatRequest("Hi"));
+        Assert.Equal(HttpStatusCode.Conflict, chat.StatusCode);
+    }
+
+    [Fact]
+    public async Task Organizer_can_list_magic_links_only_when_enabled()
+    {
+        var traveler = VamooseFactory.NewEmail("ana");
+        var (organizer, tripId) = await factory.StartTripAsync(VamooseFactory.NewEmail("org"), traveler);
+
+        var links = await organizer.GetFromJsonAsync<List<MagicLinkDto>>($"/api/trips/{tripId}/magic-links");
+
+        Assert.Equal(["Primary", "Traveler"], links!.Select(l => l.Role));
+        Assert.EndsWith($"/t/{VamooseFactory.MagicTokenFor(traveler)}", links[1].Link);
+        var travelerClient = await factory.OpenMagicLinkAsync(traveler);
+        Assert.Equal(HttpStatusCode.Forbidden, (await travelerClient.GetAsync($"/api/trips/{tripId}/magic-links")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Sending_shows_travelers_the_questions_and_opens_a_24_hour_window()
     {
         var traveler = VamooseFactory.NewEmail("ben");
         var (organizer, tripId) = await PlannedTripAsync(traveler);
-        var travelerClient = factory.NewClient();
-        Assert.Null(VamooseFactory.MagicTokenFor(traveler));
 
         var sent = await Send(organizer, tripId);
 
         Assert.Equal("Agreement", sent.Status);
         Assert.InRange(sent.ResponseDeadline!.Value - DateTimeOffset.UtcNow, TimeSpan.FromHours(23.9), TimeSpan.FromHours(24));
-        travelerClient = await factory.OpenMagicLinkAsync(traveler);
+        var travelerClient = await factory.OpenMagicLinkAsync(traveler);
         var seen = await travelerClient.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
         Assert.True(seen!.Permissions.CanRespond);
         Assert.All(seen.Items, i => Assert.Equal($"OK with {i.Title}?", i.Question));

@@ -31,6 +31,10 @@ public class PlanService(
         var ctx = await access.LoadAsync(tripId, ct, withPlan: true);
         TripAccess.RequireActive(ctx);
         TripAccess.RequireStatus(ctx, TripStatus.Planning, TripStatus.Agreement, TripStatus.Locked);
+        if (!ctx.IsPrimary && ctx.Trip.SentAt == null)
+        {
+            throw new ConflictException("The organizer is still planning this trip. You can chat once it's sent.");
+        }
 
         var trip = ctx.Trip;
         var canEdit = ctx.IsPrimary && trip.Status is TripStatus.Planning or TripStatus.Agreement;

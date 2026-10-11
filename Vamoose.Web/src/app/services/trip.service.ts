@@ -11,6 +11,7 @@ import {
   StartTrip,
   StartTripResult,
   TripDetail,
+  TripMagicLink,
   TripSummary,
 } from '@interfaces/api';
 
@@ -33,6 +34,11 @@ export class TripService {
 
   outbox(): Promise<OutboxEmail[]> {
     return firstValueFrom(this._http.get<OutboxEmail[]>('/api/dev/outbox'));
+  }
+
+  // Organizer only; the API returns 404 unless App:ExposeMagicLinks is on (development).
+  magicLinks(id: string): Promise<TripMagicLink[]> {
+    return firstValueFrom(this._http.get<TripMagicLink[]>(`/api/trips/${id}/magic-links`));
   }
 
   get(id: string): Promise<TripDetail> {

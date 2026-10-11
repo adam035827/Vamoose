@@ -63,6 +63,9 @@ export class TripPage {
   private readonly _trips = inject(TripService);
   private readonly _notifications = inject(NotificationService);
   private readonly _input = viewChild<ElementRef<HTMLInputElement>>('messageInput');
+  private readonly _firstQuestion = viewChild<ElementRef<HTMLElement>>('firstQuestion');
+  private readonly _loggedLinks = new Set<string>();
+  private _landedOnQuestions = false;
 
   readonly id = input.required<string>();
 
@@ -112,6 +115,15 @@ export class TripPage {
   });
 
   protected readonly isPrimary = computed(() => this.trip()?.myRole === 'Primary');
+
+  // Travelers can open their magic link before the organizer sends the plan.
+  protected readonly waitingNote = computed(() => {
+    const t = this.trip();
+    if (!t || this.isPrimary() || t.status !== 'Planning') {
+      return null;
+    }
+    return `${shortName(t.primaryEmail)} is still planning this trip. You'll see the questions here as soon as it's sent.`;
+  });
   protected readonly canSend = computed(() => {
     const t = this.trip();
     return !!t?.permissions.canSend && t.status === 'Planning' && t.items.length > 0;
@@ -172,6 +184,13 @@ export class TripPage {
       this.messages();
       this.pending();
       this.trip();
+      // Travelers arriving from their magic link land on the questions first.
+      const first = this._firstQuestion()?.nativeElement;
+      if (first && !this._landedOnQuestions) {
+        this._landedOnQuestions = true;
+        first.scrollIntoView({ block: 'start' });
+        return;
+      }
       window.scrollTo({ top: document.body.scrollHeight });
     });
 
@@ -191,6 +210,7 @@ export class TripPage {
       const [trip, messages] = await Promise.all([this._trips.get(this.id()), this._trips.chat(this.id())]);
       this.trip.set(trip);
       this.messages.set(messages);
+      void this.logMagicLinks(trip);
     } catch {
       // Keep showing the current state; the next change or reload will catch up.
     }
@@ -204,6 +224,7 @@ export class TripPage {
       const [trip, messages] = await Promise.all([this._trips.get(id), this._trips.chat(id)]);
       this.trip.set(trip);
       this.messages.set(messages);
+      void this.logMagicLinks(trip);
     } catch (e) {
       if (e instanceof HttpErrorResponse && e.status === 404) {
         this.gone.set(true);
@@ -212,6 +233,24 @@ export class TripPage {
       }
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  // No email provider yet: in development the organizer's browser console shows everyone's magic link.
+  private async logMagicLinks(trip: TripDetail): Promise<void> {
+    if (trip.myRole !== 'Primary') {
+      return;
+    }
+    try {
+      const links = (await this._trips.magicLinks(trip.id)).filter((l) => !this._loggedLinks.has(l.link));
+      if (!links.length) {
+        return;
+      }
+      links.forEach((l) => this._loggedLinks.add(l.link));
+      console.info(`[Vamoose] Magic links for "${trip.name}":`);
+      links.forEach((l) => console.info(`[Vamoose] ${l.email} (${l.role}): ${l.link}`));
+    } catch {
+      // Not exposed outside development.
     }
   }
 

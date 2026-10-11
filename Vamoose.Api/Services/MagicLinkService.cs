@@ -32,8 +32,11 @@ public class DevEmailSender(ILogger<DevEmailSender> logger) : IEmailSender
 }
 
 // Each member has a magic link per trip; it is the only access needed (requirements 3.2).
-public class MagicLinkService(IEmailSender email, IConfiguration config)
+public class MagicLinkService(IEmailSender email, IConfiguration config, ILogger<MagicLinkService> logger)
 {
+    // Development shows each member's link to the organizer's browser; off on the server unless configured.
+    public bool ExposeLinks => config.GetValue("App:ExposeMagicLinks", false);
+
     public static string NewToken() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
 
     public string LinkFor(TripMember member) =>
@@ -51,5 +54,8 @@ public class MagicLinkService(IEmailSender email, IConfiguration config)
             """;
         await email.SendAsync(member.User.Email, subject, body, ct);
         member.LinkSentAt = DateTimeOffset.UtcNow;
+
+        // No email provider yet, so the link itself goes to the console.
+        logger.LogInformation("Magic link for {Email} ({Role}) on \"{Trip}\": {Link}", member.User.Email, member.Role, trip.Name, LinkFor(member));
     }
 }

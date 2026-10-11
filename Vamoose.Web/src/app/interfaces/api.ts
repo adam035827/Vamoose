@@ -123,6 +123,12 @@ export interface MagicLinkResult {
   tripId: string;
 }
 
+export interface TripMagicLink {
+  email: string;
+  role: MemberRole;
+  link: string;
+}
+
 export interface OutboxEmail {
   to: string;
   subject: string;
