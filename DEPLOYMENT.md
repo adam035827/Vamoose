@@ -141,6 +141,9 @@ server {
     index index.html;
 
     location /api/ {
+        # A first plan can take over a minute; stay above the API's 180s agent timeout (Nginx default is 60s -> 504).
+        proxy_read_timeout 200s;
+        proxy_send_timeout 200s;
         proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
