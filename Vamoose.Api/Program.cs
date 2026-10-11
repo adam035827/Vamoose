@@ -85,12 +85,6 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-
-    if (app.Configuration.GetValue("Demo:Seed", false))
-    {
-        using var scope = app.Services.CreateScope();
-        await DemoSeeder.SeedAsync(scope.ServiceProvider);
-    }
 }
 
 app.UseAuthentication();
