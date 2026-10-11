@@ -317,6 +317,7 @@ export class TripPage {
     try {
       const response = await this._trips.sendMessage(this.id(), text);
       this.messages.update((list) => [...list, ...response.messages.filter((m) => !list.some((x) => x.id === m.id))]);
+      this.pending.set(null);
       if (response.planUpdated) {
         this.trip.set(await this._trips.get(this.id()));
       }
