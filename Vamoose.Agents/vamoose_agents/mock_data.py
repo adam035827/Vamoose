@@ -5,7 +5,6 @@ from .contracts import (
     AgentMessage,
     Analysis,
     ChatReply,
-    ItemAnalysis,
     DraftItem,
     DraftItinerary,
     Money,
@@ -15,6 +14,7 @@ from .contracts import (
     QuestionSet,
     TripPlan,
 )
+from .voting import tally
 
 # Canned Drafter output so the API/UI can integrate without AWS credentials.
 MOCK_DRAFT = DraftItinerary(
@@ -194,16 +194,7 @@ def mock_questions(invocation: AgentInvocation) -> QuestionSet:
 
 def mock_analysis(invocation: AgentInvocation) -> Analysis:
     r = invocation.responses
-    items = [
-        ItemAnalysis(
-            slot_key=s.key,
-            approvers=[c.participant for c in s.choices if c.option == s.selected],
-            dissenters=[c.participant for c in s.choices if c.option != s.selected],
-            alternatives=sorted({c.option for c in s.choices if c.option != s.selected}),
-        )
-        for s in (r.slots if r else [])
-    ]
-    works = r is not None and not r.denied and not r.pending and not any(i.dissenters for i in items)
+    items, works = tally(r)
     summary = (
         "(Mock) Everyone has approved the plan."
         if works

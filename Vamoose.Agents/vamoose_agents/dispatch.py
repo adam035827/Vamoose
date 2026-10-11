@@ -17,12 +17,14 @@ from .contracts import (
     DraftItinerary,
     QuestionSet,
 )
-from .drafter import build_planner_model, draft_itinerary
+from .drafter import draft_itinerary
 from .mock_data import MOCK_DRAFT
+from .models import Models, as_models, build_models
 
 logger = logging.getLogger(__name__)
 
-ModelFactory = Callable[[Settings], Model]
+# Returns both model roles, or one model used for both (tests).
+ModelFactory = Callable[[Settings], Model | Models]
 
 
 class Emitter:
@@ -69,7 +71,7 @@ class Route:
     step: AgentStep
     progress: str
     requires: tuple[str, ...]
-    run: Callable[[AgentInvocation, Model], Awaitable[ChatReply | QuestionSet | Analysis | AgentMessage]]
+    run: Callable[[AgentInvocation, Models], Awaitable[ChatReply | QuestionSet | Analysis | AgentMessage]]
     mock: Callable[[AgentInvocation], ChatReply | QuestionSet | Analysis | AgentMessage]
 
 
@@ -91,7 +93,7 @@ ROUTES: dict[str, Route] = {
 async def handle(
     payload: object,
     settings: Settings | None = None,
-    model_factory: ModelFactory = build_planner_model,
+    model_factory: ModelFactory = build_models,
 ) -> AsyncIterator[AgentEvent]:
     settings = settings or Settings.from_env()
     try:
@@ -117,7 +119,11 @@ async def handle(
 
     yield emit.progress(route.step, route.progress)
     try:
-        output = route.mock(invocation) if settings.mock_agents else await route.run(invocation, model_factory(settings))
+        output = (
+            route.mock(invocation)
+            if settings.mock_agents
+            else await route.run(invocation, as_models(model_factory(settings)))
+        )
     except Exception:
         logger.exception("%s failed for request %s", invocation.action, invocation.request_id)
         yield emit.error("The Vamoose agent hit a problem. Please try again.")
@@ -135,7 +141,11 @@ async def _draft(
 
     yield emit.progress("Drafting", "Sketching a day-by-day plan")
     try:
-        draft = MOCK_DRAFT if settings.mock_agents else await draft_itinerary(invocation.message, model_factory(settings))
+        draft = (
+            MOCK_DRAFT
+            if settings.mock_agents
+            else await draft_itinerary(invocation.message, as_models(model_factory(settings)).planner)
+        )
     except Exception:
         # Details stay in server logs; callers only see a friendly message.
         logger.exception("Draft failed for request %s", invocation.request_id)
