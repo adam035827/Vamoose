@@ -63,6 +63,8 @@ builder.Services.AddSingleton<PlanResearchQueue>();
 builder.Services.AddHostedService<PlanResearcher>();
 builder.Services.AddSingleton<TripEvaluationQueue>();
 builder.Services.AddHostedService<TripEvaluator>();
+builder.Services.AddSingleton<QuestionWritingQueue>();
+builder.Services.AddHostedService<QuestionWriter>();
 
 if (!string.IsNullOrEmpty(builder.Configuration["Agents:RuntimeArn"]))
 {

@@ -92,14 +92,38 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
         var traveler = VamooseFactory.NewEmail("ben");
         var (organizer, tripId) = await PlannedTripAsync(traveler);
 
+        var questionCalls = QuestionCalls();
         var sent = await Send(organizer, tripId);
 
+        // Sending doesn't wait for the agent: travelers start with template questions.
+        Assert.Equal(questionCalls, QuestionCalls());
         Assert.Equal("Agreement", sent.Status);
         Assert.InRange(sent.ResponseDeadline!.Value - DateTimeOffset.UtcNow, TimeSpan.FromHours(23.9), TimeSpan.FromHours(24));
+        Assert.Contains(sent.Items, i => i.Question == "Does Apartment work for you for Where we stay?");
+
+        await WriteQuestionsAsync(tripId, sent.PlanVersion);
+
         var travelerClient = await factory.OpenMagicLinkAsync(traveler);
         var seen = await travelerClient.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
         Assert.True(seen!.Permissions.CanRespond);
         Assert.All(seen.Items, i => Assert.Equal($"OK with {i.Title}?", i.Question));
+    }
+
+    [Fact]
+    public async Task Agent_wording_for_an_older_plan_version_is_dropped()
+    {
+        var (organizer, tripId) = await PlannedTripAsync(VamooseFactory.NewEmail("ben"));
+        var sent = await Send(organizer, tripId);
+        var lodging = sent.Items.Single(i => i.Key == "lodging-main");
+        var hostel = lodging.Options.Single(o => o.Title == "Hostel").Id;
+        (await organizer.PutAsJsonAsync($"/api/trips/{tripId}/items/{lodging.Id}/selection", new SelectOptionRequest(hostel))).EnsureSuccessStatusCode();
+
+        var questionCalls = QuestionCalls();
+        await WriteQuestionsAsync(tripId, sent.PlanVersion);
+
+        Assert.Equal(questionCalls, QuestionCalls());
+        var trip = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+        Assert.DoesNotContain(trip!.Items, i => i.Question!.StartsWith("OK with"));
     }
 
     [Fact]
@@ -149,7 +173,11 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
         (await benClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(wantsHostel))).EnsureSuccessStatusCode();
         var answered = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
         Assert.False(answered!.Decided);
+        var analyzeCalls = factory.Agent.Calls.Count(c => c.Action == AgentActions.Analyze);
         await SettleAsync(tripId);
+
+        // No tie, so the majority is applied without calling the agent.
+        Assert.Equal(analyzeCalls, factory.Agent.Calls.Count(c => c.Action == AgentActions.Analyze));
 
         var decided = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
         Assert.True(decided!.Decided);
@@ -308,6 +336,12 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
 
     private static List<ChoiceDto> Current(TripDetailDto trip) =>
         [.. trip.Items.Select(i => new ChoiceDto(i.Id, i.SelectedOptionId!.Value))];
+
+    // What QuestionWriter does in the background after the trip is sent or edited.
+    private Task WriteQuestionsAsync(Guid tripId, int planVersion) =>
+        factory.RunAsync(sp => sp.GetRequiredService<AgreementService>().WriteQuestionsAsync(tripId, planVersion, CancellationToken.None));
+
+    private int QuestionCalls() => factory.Agent.Calls.Count(c => c.Action == AgentActions.Questions);
 
     // What TripEvaluator does in the background after an answer.
     private Task SettleAsync(Guid tripId) =>

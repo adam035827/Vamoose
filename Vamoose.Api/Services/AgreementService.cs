@@ -17,6 +17,7 @@ public class AgreementService(
     MagicLinkService magicLinks,
     NotificationService notifications,
     TripEvaluationQueue evaluations,
+    QuestionWritingQueue questions,
     ILogger<AgreementService> logger)
 {
     public static readonly TimeSpan ResponseWindow = TimeSpan.FromHours(24);
@@ -49,7 +50,7 @@ public class AgreementService(
         trip.Status = TripStatus.Agreement;
         trip.SentAt = DateTimeOffset.UtcNow;
         await ResetApprovalsAsync(trip, ct);
-        await GenerateQuestionsAsync(trip, ct);
+        SetTemplateQuestions(trip);
 
         // Each traveler's magic link is their only way in (requirements 3.2).
         foreach (var member in ctx.ActiveMembers.Where(m => m.Role == MemberRole.Traveler && m.LinkSentAt == null))
@@ -66,9 +67,11 @@ public class AgreementService(
                 : $"{trip.PrimaryUser.Email} sent you the trip \"{trip.Name}\". You have 24 hours to answer a few questions.");
         await db.SaveChangesAsync(ct);
         await notifications.FlushAsync(ct);
+        QueueQuestions(trip);
     }
 
     // Called whenever the primary user changes the plan. Answers are cleared and a new round starts (requirements 4.3).
+    // With regenerateQuestions, travelers get template questions; call QueueQuestions after saving for the agent's wording.
     public async Task OnPlanEditedAsync(TripContext ctx, string what, bool regenerateQuestions, CancellationToken ct)
     {
         var trip = ctx.Trip;
@@ -81,7 +84,7 @@ public class AgreementService(
         await ResetApprovalsAsync(trip, ct);
         if (regenerateQuestions)
         {
-            await GenerateQuestionsAsync(trip, ct);
+            SetTemplateQuestions(trip);
         }
 
         notifications.Notify(
@@ -232,16 +235,20 @@ public class AgreementService(
                 [.. item.Options.Where(o => o.Id != item.SelectedOptionId).Select(o => o.Title)],
                 [.. choices.Where(c => c.PlanItemId == item.Id).Select(c => new AgentParticipantChoice(labels[c.UserId], item.Options.First(o => o.Id == c.OptionId).Title))]))]);
 
+        // Clear majorities are counted here; the agent is only needed to break ties.
         AgentAnalysis? analysis = null;
-        try
+        if (trip.Items.Any(item => Leaders(item, [.. choices.Where(c => c.PlanItemId == item.Id)]).Count > 1))
         {
-            var result = await agent.InvokeAsync(new AgentInvocation(
-                AgentRequests.NewId(), AgentActions.Analyze, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), Responses: responses, TripId: trip.Id), ct);
-            analysis = result.Analysis;
-        }
-        catch (AgentUnavailableException ex)
-        {
-            logger.LogWarning(ex, "Tie breaks fell back to the current pick for trip {TripId}", trip.Id);
+            try
+            {
+                var result = await agent.InvokeAsync(new AgentInvocation(
+                    AgentRequests.NewId(), AgentActions.Analyze, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), Responses: responses, TripId: trip.Id), ct);
+                analysis = result.Analysis;
+            }
+            catch (AgentUnavailableException ex)
+            {
+                logger.LogWarning(ex, "Tie breaks fell back to the current pick for trip {TripId}", trip.Id);
+            }
         }
         var decisions = (analysis?.Items ?? []).GroupBy(i => i.SlotKey).ToDictionary(g => g.Key, g => g.First());
 
@@ -310,31 +317,64 @@ public class AgreementService(
         return [.. item.Options.Where(o => counts.GetValueOrDefault(o.Id) == top)];
     }
 
-    private async Task GenerateQuestionsAsync(Trip trip, CancellationToken ct)
+    private static void SetTemplateQuestions(Trip trip) => trip.Items.ForEach(i => i.Question = DefaultQuestion(i));
+
+    // Call after the plan version's changes are saved, so the background job sees them.
+    public void QueueQuestions(Trip trip)
     {
+        if (trip.Status == TripStatus.Agreement)
+        {
+            questions.Enqueue(trip.Id, trip.PlanVersion);
+        }
+    }
+
+    // Run by QuestionWriter: replaces the template questions with the agent's wording, unless the plan changed meanwhile.
+    public async Task WriteQuestionsAsync(Guid tripId, int planVersion, CancellationToken ct)
+    {
+        var ctx = await access.LoadForSystemAsync(tripId, ct);
+        var trip = ctx.Trip;
+        if (!IsCurrent(trip, planVersion))
+        {
+            return;
+        }
+
+        AgentResult result;
         try
         {
-            var result = await agent.InvokeAsync(new AgentInvocation(
+            result = await agent.InvokeAsync(new AgentInvocation(
                 AgentRequests.NewId(), AgentActions.Questions, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), TripId: trip.Id), ct);
-
-            // Questions are checked against their fixed structure before use (requirements 4.1).
-            var byKey = (result.Questions ?? [])
-                .Where(q => q.Type == "SingleChoice" && !string.IsNullOrWhiteSpace(q.Prompt))
-                .GroupBy(q => q.SlotKey)
-                .ToDictionary(g => g.Key, g => g.First());
-            foreach (var item in trip.Items)
-            {
-                item.Question = byKey.TryGetValue(item.Key, out var q) && q.Options.Count == item.Options.Count
-                    ? q.Prompt[..Math.Min(q.Prompt.Length, 400)]
-                    : DefaultQuestion(item);
-            }
         }
         catch (AgentUnavailableException ex)
         {
-            logger.LogWarning(ex, "Question generation fell back to defaults for trip {TripId}", trip.Id);
-            trip.Items.ForEach(i => i.Question = DefaultQuestion(i));
+            logger.LogWarning(ex, "Questions kept their templates for trip {TripId}", trip.Id);
+            return;
         }
+
+        // Questions are checked against their fixed structure before use (requirements 4.1).
+        var byKey = (result.Questions ?? [])
+            .Where(q => q.Type == "SingleChoice" && !string.IsNullOrWhiteSpace(q.Prompt))
+            .GroupBy(q => q.SlotKey)
+            .ToDictionary(g => g.Key, g => g.First());
+        foreach (var item in trip.Items)
+        {
+            if (byKey.TryGetValue(item.Key, out var q) && q.Options.Count == item.Options.Count)
+            {
+                item.Question = q.Prompt[..Math.Min(q.Prompt.Length, 400)];
+            }
+        }
+
+        // The agent call took a while: skip the save if the organizer changed the plan in the meantime.
+        var current = await db.Trips.AsNoTracking().Where(t => t.Id == tripId).Select(t => new { t.Status, t.PlanVersion }).FirstOrDefaultAsync(ct);
+        if (current is null || current.Status != TripStatus.Agreement || current.PlanVersion != planVersion)
+        {
+            return;
+        }
+        await db.SaveChangesAsync(ct);
+        notifications.TripChanged(ctx.ActiveMemberIds, tripId);
+        await notifications.FlushAsync(ct);
     }
+
+    private static bool IsCurrent(Trip trip, int planVersion) => trip.Status == TripStatus.Agreement && trip.PlanVersion == planVersion;
 
     // Every new plan version starts a fresh 24-hour response window.
     private async Task ResetApprovalsAsync(Trip trip, CancellationToken ct)

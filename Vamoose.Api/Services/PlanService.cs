@@ -91,6 +91,10 @@ public class PlanService(
         {
             research.Enqueue(tripId, trip.PlanVersion);
         }
+        if (planUpdated)
+        {
+            agreement.QueueQuestions(trip);
+        }
         return new ChatResponseDto([ToDto(userMessage), ToDto(agentMessage)], planUpdated);
     }
 
