@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -11,7 +10,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { errorMessage } from '@functions/errors';
 import { StartIntro, TripSummary } from '@interfaces/api';
 import { AuthService } from '@services/auth.service';
@@ -24,7 +23,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // The home page is the agent (requirements 3.1): where to go, then who you are and who's going.
 @Component({
   selector: 'app-home',
-  imports: [FormsModule, RouterLink, DatePipe],
+  imports: [FormsModule],
   templateUrl: './home.html',
   styleUrl: './home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

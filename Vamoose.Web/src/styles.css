@@ -23,9 +23,10 @@
   --color-danger-soft: #fbe2e2;
   --color-warning: #b26a00;
   --color-warning-soft: #fdf0d5;
-  --color-agent-bubble: #ffffff;
-  --color-user-bubble: #0f766e;
-  --color-on-user-bubble: #ffffff;
+  --color-agent-bubble: #333;
+  --color-on-agent-bubble: #efefef;
+  --color-user-bubble: #333;
+  --color-on-user-bubble: #efefef;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 6%), 0 4px 16px rgb(0 0 0 / 5%);
   --shadow-pop: 0 8px 32px rgb(0 0 0 / 16%);
   --radius-sm: 8px;
@@ -170,6 +171,35 @@ textarea::placeholder {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-brand-text);
+}
+
+.input-shell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-brand-text);
+  box-shadow: var(--shadow-pop);
+}
+
+.input-shell:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.input-shell > .input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.input-shell > .input:focus-visible {
+  outline: none;
 }
 
 .input:focus-visible,
