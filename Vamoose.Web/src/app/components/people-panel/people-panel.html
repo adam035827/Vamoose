@@ -34,7 +34,7 @@
     <form class="people__add card" (ngSubmit)="submit()">
       <label class="field">
         <span class="field__label">Add a traveler by email</span>
-        <div class="people__add-row">
+        <div class="input-shell people__add-row">
           <input class="input" type="email" name="email" placeholder="friend@example.com" required
             [ngModel]="email()" (ngModelChange)="email.set($event)" />
           <button type="submit" class="btn btn--primary" [disabled]="busy() || !email().trim()">Add</button>

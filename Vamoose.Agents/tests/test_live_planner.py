@@ -2,11 +2,13 @@ import os
 
 import pytest
 
-from vamoose_agents.config import Settings
+from vamoose_agents.config import Settings, load_local_env
 from vamoose_agents.contracts import AgentInvocation
-from vamoose_agents.drafter import build_planner_model
 from vamoose_agents.mock_data import mock_plan
+from vamoose_agents.models import build_models
 from vamoose_agents.planner import analyze, chat, nudge, questions
+
+load_local_env()
 
 pytestmark = [
     pytest.mark.live,
@@ -23,7 +25,7 @@ def invocation(**fields) -> AgentInvocation:
 
 @pytest.fixture
 def model():
-    return build_planner_model(Settings.from_env())
+    return build_models(Settings.from_env())
 
 
 async def test_intro_against_real_bedrock(model):
@@ -44,6 +46,24 @@ async def test_planning_chat_returns_plan_with_alternatives(model):
     )
 
     assert reply.plan is not None and all(len(s.options) >= 2 for s in reply.plan.slots)
+
+
+async def test_quick_edit_changes_only_one_slot(model):
+    reply = await chat(
+        invocation(
+            action="Chat",
+            trip={**TRIP, "status": "Planning"},
+            plan=PLAN,
+            canEditPlan=True,
+            message="Switch the welcome dinner to the seafood restaurant.",
+        ),
+        model,
+    )
+
+    assert reply.plan is not None
+    selected = {s.key: s.selected_index for s in reply.plan.slots}
+    assert selected["dinner-day-1"] == 1
+    assert all(selected[s["key"]] == s["selectedIndex"] for s in PLAN["slots"] if s["key"] != "dinner-day-1")
 
 
 async def test_questions_against_real_bedrock(model):
