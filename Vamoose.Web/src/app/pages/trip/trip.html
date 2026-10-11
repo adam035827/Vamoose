@@ -13,7 +13,7 @@
       <a class="btn btn--primary" routerLink="/home">Plan a new trip</a>
     </div>
   } @else {
-    <div class="convo" aria-live="polite">
+    <div class="convo" aria-live="polite" #convo>
       @if (loading() && !messages().length) {
         <p class="muted page__status" role="status">Loading your trip…</p>
       }

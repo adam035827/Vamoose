@@ -64,8 +64,10 @@ export class TripPage {
   private readonly _notifications = inject(NotificationService);
   private readonly _input = viewChild<ElementRef<HTMLInputElement>>('messageInput');
   private readonly _firstQuestion = viewChild<ElementRef<HTMLElement>>('firstQuestion');
+  private readonly _convo = viewChild<ElementRef<HTMLElement>>('convo');
+  private readonly _seen = new WeakSet<Element>();
+  private _initialScrollDone = false;
   private readonly _loggedLinks = new Set<string>();
-  private _landedOnQuestions = false;
 
   readonly id = input.required<string>();
 
@@ -207,14 +209,26 @@ export class TripPage {
       this.pending();
       this.trip();
       this.steps();
-      // Travelers arriving from their magic link land on the questions first.
-      const first = this._firstQuestion()?.nativeElement;
-      if (first && !this._landedOnQuestions) {
-        this._landedOnQuestions = true;
-        first.scrollIntoView({ block: 'start' });
+      const convo = this._convo()?.nativeElement;
+      if (!convo || this.loading()) {
         return;
       }
-      window.scrollTo({ top: document.body.scrollHeight });
+      const items = Array.from(convo.children).filter((el) => !el.classList.contains('page__status'));
+      const added = items.filter((el) => !this._seen.has(el));
+      added.forEach((el) => this._seen.add(el));
+
+      if (!this._initialScrollDone) {
+        this._initialScrollDone = true;
+        // Travelers arriving from their magic link land on the questions first.
+        const first = this._firstQuestion()?.nativeElement;
+        if (first) {
+          first.scrollIntoView({ block: 'start' });
+        } else {
+          window.scrollTo({ top: document.body.scrollHeight });
+        }
+        return;
+      }
+      added[0]?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
 
     const timer = setInterval(() => this._now.set(Date.now()), 30_000);
