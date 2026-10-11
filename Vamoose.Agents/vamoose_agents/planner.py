@@ -4,10 +4,10 @@ Model roles: the planner model (Sonnet) builds and edits plans; the fast model (
 and well-defined, including parallel research assistants the planner delegates to.
 """
 
+import asyncio
 import datetime as dt
 import json
 import logging
-import threading
 import time
 from typing import TypeVar
 
@@ -27,6 +27,7 @@ from .contracts import (
     Question,
     QuestionSet,
     ResearchResult,
+    TripContext,
     TripPlan,
 )
 from .models import Models, as_models, model_id
@@ -49,16 +50,32 @@ Reply with ONE or TWO short, upbeat sentences about the destination (no lists, n
 is coming next). Also fill `destination` with a clean place name (e.g. "Lisbon, Portugal") and `trip_name` with a
 short trip name (e.g. "Lisbon long weekend"). Return `plan` as null."""
 
+DRAFT_PROMPT = f"""You are the Vamoose agent, a friendly group-trip planner inside a chat. This user can edit the plan,
+and there is no plan yet.
+
+{UNTRUSTED}
+
+- Right after a trip is created (little history), ask a few short questions about the group (dates, budget, where
+  people travel from, interests, must-dos) before planning. Return no changes.
+- Once you know enough, draft the whole trip as `changes` with op "upsert": one slot per flight, stay, meal,
+  activity or transfer worth planning, with kebab-case keys like "dinner-day-2". Give each slot exactly ONE
+  option: your recommended pick, with a real, specific name when you know one, a one-sentence description,
+  estimated_cost_per_person, start_time/end_time when useful and energy_level. A research assistant adds
+  alternatives and links right after, so never add source_url.
+- Give every slot a `day` (1-based; lodging uses its check-in day). Use `date` only when exact dates are known.
+- `reply` is 2-3 short sentences: what you planned and that real options and links are on the way. Don't list
+  every item; the app shows the plan next to the chat.
+
+You cannot book, pay, invite people or contact anyone."""
+
 PLAN_PROMPT = f"""You are the Vamoose agent, a friendly group-trip planner inside a chat. This user can edit the plan.
 
 {UNTRUSTED}
 
-- Right after a trip is created (no plan and little history), ask a few short questions about the group (dates,
-  budget, where people travel from, interests, must-dos) before planning. Return no changes.
 - To find real options, call `research` once per slot that needs options. Call it for SEVERAL slots IN THE SAME
   TURN so they run in parallel. Don't research slots that aren't changing.
 - Express plan edits as `changes`, only for slots that change:
-  - upsert: add or replace a whole slot. Each slot has 2-4 options: the recommended one (selected_index) plus
+  - upsert: add or replace a whole slot. Each slot has 2-3 options: the recommended one (selected_index) plus
     meaningfully different alternatives, because travelers can later switch to an alternative. Reference researched
     options by their `ref` in `option_refs` (don't copy their details). Write out `options` only for options that
     did not come from research; those have no links and their prices are estimates.
@@ -66,7 +83,8 @@ PLAN_PROMPT = f"""You are the Vamoose agent, a friendly group-trip planner insid
   - select: switch the recommended option (selected_index) without changing options.
   Keep existing slot keys stable. Use kebab-case keys like "dinner-day-2".
 - Descriptions are one short sentence. Use `day` (1-based) and `date` only when exact dates are known.
-- `reply` is a concise, skimmable summary of what you did and why.
+- `reply` is 2-3 short sentences about what you changed and why. Don't list every item; the app shows the plan
+  next to the chat.
 
 You cannot book, pay, invite people or contact anyone."""
 
@@ -83,8 +101,8 @@ RESEARCH_PROMPT = f"""You research real options for ONE slot of a group trip pla
 
 {UNTRUSTED}
 
-Use web_search at most twice with focused queries. Return 2-4 meaningfully different options for the request in
-<request>. Each option: short title, one-sentence description, provider and location when known,
+Use web_search at most twice with focused queries. Return 2-3 meaningfully different options for the request in
+<request>. If the request names a current pick, return it first (as a real, specific option if it is one). Each option: short title, one-sentence description, provider and location when known,
 estimated_cost_per_person, and source_url plus price_fetched_at (the fetchedAt of that search) only when the link
 came from search results. Never invent links. If search fails, give sensible estimates without sources."""
 
@@ -116,10 +134,15 @@ plan and that they can still pick alternatives.
 Either way, make clear the choice is theirs. Never pressure, guilt-trip, exaggerate or mislead. 2-4 sentences."""
 
 PLAN_LIMITS = {"turns": 6, "output_tokens": 16000}
+DRAFT_LIMITS = {"turns": 3, "output_tokens": 6000}
 RESEARCH_LIMITS = {"turns": 4, "output_tokens": 3000}
 SMALL_LIMITS = {"turns": 3, "output_tokens": 2000}
-# Shared by all parallel research assistants in one planning request.
-PLANNING_SEARCH_BUDGET = 10
+# The slowest research assistant holds up the whole plan, so each one gets a deadline and its own search budget.
+RESEARCH_TIMEOUT_SECONDS = 15
+# Background research (after the first draft) has nobody waiting on it, so it can let slower searches finish.
+BACKGROUND_RESEARCH_TIMEOUT_SECONDS = 30
+SEARCHES_PER_RESEARCH = 2
+MAX_RESEARCH_PER_REQUEST = 12
 HISTORY_MESSAGES = 8
 
 
@@ -163,8 +186,38 @@ async def _run(model: Model, name: str, prompt: str, blocks: list[dict], output:
     return result.structured_output
 
 
-def _research_tool(model: Model, search: SearchSession, today: dt.date, found_options: dict[str, PlanOption]):
-    lock = threading.Lock()
+async def _research(
+    model: Model,
+    search_fn: SearchFn | None,
+    sources: dict[str, dt.datetime],
+    today: dt.date,
+    category: str,
+    request: str,
+    timeout: float | None = None,
+) -> ResearchResult | None:
+    """One research assistant; None when it fails or misses its deadline. Records the URLs search really returned."""
+    search = SearchSession(search_fn, max_searches=SEARCHES_PER_RESEARCH)
+    blocks = [
+        {"text": f"Today's date: {today.isoformat()}"},
+        {"text": f"<request>\nCategory: {category[:40]}\n{request[:1200]}\n</request>"},
+    ]
+    try:
+        return await asyncio.wait_for(
+            _run(model, "researcher", RESEARCH_PROMPT, blocks, ResearchResult, [search.tool], RESEARCH_LIMITS),
+            timeout or RESEARCH_TIMEOUT_SECONDS,
+        )
+    except Exception as ex:
+        logger.warning("Research failed: %s", type(ex).__name__)
+        return None
+    finally:
+        for url, fetched_at in list(search.sources.items()):
+            sources.setdefault(url, fetched_at)
+
+
+def _research_tool(
+    model: Model, search_fn: SearchFn | None, sources: dict[str, dt.datetime], today: dt.date, found_options: dict[str, PlanOption]
+):
+    started = 0
 
     @tool
     async def research(category: str, request: str) -> dict:
@@ -179,22 +232,20 @@ def _research_tool(model: Model, search: SearchSession, today: dt.date, found_op
         Returns:
             options, each with a `ref` to put in a slot's option_refs, plus an optional note.
         """
-        blocks = [
-            {"text": f"Today's date: {today.isoformat()}"},
-            {"text": f"<request>\nCategory: {category[:40]}\n{request[:600]}\n</request>"},
-        ]
-        try:
-            found = await _run(model, "researcher", RESEARCH_PROMPT, blocks, ResearchResult, [search.tool], RESEARCH_LIMITS)
-        except Exception as ex:
-            logger.warning("Research failed: %s", type(ex).__name__)
+        nonlocal started
+        started += 1
+        if started > MAX_RESEARCH_PER_REQUEST:
+            return {"error": "Research limit reached for this message. Write remaining options yourself as estimates."}
+        found = await _research(model, search_fn, sources, today, category, request[:600])
+        if found is None:
             return {"error": "Research is unavailable for this slot. Write options out yourself as estimates."}
 
+        # Runs on the event loop thread, so assigning refs needs no lock.
         listed = []
-        with lock:
-            for option in found.options:
-                ref = f"r{len(found_options) + 1}"
-                found_options[ref] = option
-                listed.append({"ref": ref, **option.to_wire()})
+        for option in found.options:
+            ref = f"r{len(found_options) + 1}"
+            found_options[ref] = option
+            listed.append({"ref": ref, **option.to_wire()})
         return {"options": listed, "note": found.note}
 
     return research
@@ -217,14 +268,88 @@ async def chat(
         answer = await _run(models.fast, "answerer", ANSWER_PROMPT, blocks, AgentMessage, [], SMALL_LIMITS)
         return ChatReply(reply=answer.message)
 
-    search = SearchSession(search_fn, max_searches=PLANNING_SEARCH_BUDGET)
+    if invocation.plan is None or not invocation.plan.slots:
+        # Fast first draft (one pick per slot, no research); the API then runs `research_plan` in the background.
+        drafted = await _run(models.fast, "plan-drafter", DRAFT_PROMPT, blocks, PlannerReply, [], DRAFT_LIMITS)
+        plan = apply_changes(None, drafted.changes)
+        if plan:
+            _ground_sources(plan, {}, None)
+        return ChatReply(reply=drafted.reply, plan=plan)
+
+    sources: dict[str, dt.datetime] = {}
     found_options: dict[str, PlanOption] = {}
-    research = _research_tool(models.fast, search, today, found_options)
+    research = _research_tool(models.fast, search_fn, sources, today, found_options)
     planned = await _run(models.planner, "planner", PLAN_PROMPT, blocks, PlannerReply, [research], PLAN_LIMITS)
     plan = apply_changes(invocation.plan, planned.changes, found_options)
     if plan:
-        _ground_sources(plan, search.sources, invocation.plan)
+        _ground_sources(plan, sources, invocation.plan)
     return ChatReply(reply=planned.reply, plan=plan)
+
+
+def _slot_request(trip: TripContext | None, slot: PlanSlot) -> str:
+    pick = slot.options[min(slot.selected_index, len(slot.options) - 1)]
+    lines = []
+    if trip:
+        when = f"{trip.start_date} to {trip.end_date}" if trip.start_date else "dates not set"
+        lines.append(f"Trip: {trip.destination}, {when}, {trip.traveler_count} travelers.")
+        if trip.notes:
+            lines.append(f"Organizer notes: {trip.notes[:400]}")
+    lines.append(f"Slot: {slot.title}" + (f" (day {slot.day})" if slot.day else ""))
+    lines.append(f"Current pick: {pick.title}" + (f" - {pick.description}" if pick.description else ""))
+    lines.append("Return the current pick first, then 1-2 meaningfully different alternatives.")
+    return "\n".join(lines)
+
+
+async def research_plan(
+    invocation: AgentInvocation, model: Model | Models, today: dt.date | None = None, search_fn: SearchFn | None = None
+) -> ChatReply:
+    """Second phase of a first plan: real options and links for every slot, researched in parallel."""
+    models = as_models(model)
+    today = today or dt.date.today()
+    current = invocation.plan
+    targets = [slot for slot in current.slots if slot.category != "Free"][:MAX_RESEARCH_PER_REQUEST]
+    sources: dict[str, dt.datetime] = {}
+    results = await asyncio.gather(
+        *(
+            _research(
+                models.fast, search_fn, sources, today, slot.category, _slot_request(invocation.trip, slot),
+                BACKGROUND_RESEARCH_TIMEOUT_SECONDS,
+            )
+            for slot in targets
+        )
+    )
+    found = {slot.key: result for slot, result in zip(targets, results) if result}
+    if not found:
+        return ChatReply(reply="I couldn't look up more options right now, so the plan keeps its estimates.")
+
+    slots = []
+    for slot in current.slots:
+        result = found.get(slot.key)
+        if result is None:
+            slots.append(slot.model_copy(deep=True))
+            continue
+        pick = slot.options[min(slot.selected_index, len(slot.options) - 1)]
+        # Alternatives fill the same spot in the day, so they inherit the pick's timing when research has none.
+        options = [
+            option.model_copy(
+                update={
+                    "start_time": option.start_time or pick.start_time,
+                    "end_time": option.end_time or pick.end_time,
+                    "energy_level": option.energy_level or pick.energy_level,
+                },
+                deep=True,
+            )
+            for option in result.options[:3]
+        ]
+        slots.append(slot.model_copy(update={"options": options, "selected_index": 0}, deep=True))
+
+    plan = TripPlan(slots=slots)
+    _ground_sources(plan, sources, current)
+    linked = sum(1 for slot in plan.slots if any(option.source_url for option in slot.options))
+    reply = f"I found real options for {len(found)} items in the plan" + (
+        f", with links for {linked} of them." if linked else "."
+    )
+    return ChatReply(reply=reply + " Your picks come first; alternatives are there if anyone prefers something else.", plan=plan)
 
 
 def apply_changes(

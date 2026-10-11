@@ -9,9 +9,10 @@ from pydantic.alias_generators import to_camel
 Id = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]{2,63}$")]
 LocalTime = Annotated[str, StringConstraints(pattern=r"^([01][0-9]|2[0-3]):[0-5][0-9]$")]
 
-AgentAction = Literal["Draft", "Questions", "Analyze", "Chat", "Price", "Finalize", "Nudge"]
+AgentAction = Literal["Draft", "Questions", "Analyze", "Chat", "Research", "Price", "Finalize", "Nudge"]
 AgentStep = Literal[
     "Drafting",
+    "Researching",
     "Pricing",
     "DesigningQuestions",
     "Evaluating",

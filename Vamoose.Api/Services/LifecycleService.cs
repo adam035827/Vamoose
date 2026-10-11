@@ -38,7 +38,8 @@ public class LifecycleService(
                 AgentActions.Nudge,
                 Trip: AgentMapper.ToContext(ctx.Trip),
                 Plan: ctx.Trip.Items.Count > 0 ? AgentMapper.ToPlan(ctx.Trip) : null,
-                Nudge: new AgentNudgeContext(NudgeKinds.Stay)), ct);
+                Nudge: new AgentNudgeContext(NudgeKinds.Stay),
+                TripId: tripId), ct);
             message = result.Reply ?? DefaultRetain(ctx.Trip);
         }
         catch (AgentUnavailableException ex)

@@ -78,6 +78,10 @@ class Route:
 ROUTES: dict[str, Route] = {
     # Chat without a trip is the start of a new trip (requirements 3.1).
     "Chat": Route("Chatting", "Thinking it over", ("message",), planner.chat, mock_data.mock_chat),
+    # Runs in the background after a fast first draft: real options and links for every slot.
+    "Research": Route(
+        "Researching", "Looking up real options", ("trip", "plan"), planner.research_plan, mock_data.mock_research
+    ),
     "Questions": Route(
         "DesigningQuestions", "Writing questions for the group", ("trip", "plan"), planner.questions, mock_data.mock_questions
     ),

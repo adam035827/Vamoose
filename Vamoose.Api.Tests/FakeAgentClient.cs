@@ -26,6 +26,8 @@ public class FakeAgentClient : IAgentClient
             AgentActions.Chat when invocation.CanEditPlan == true && invocation.Plan is null && invocation.History is { Count: > 0 } =>
                 new AgentResult("Here's a plan.", Plan(), null, null),
             AgentActions.Chat => new AgentResult(invocation.Nudge is null ? "Who's coming and when?" : "Most of the group chose the apartment.", null, null, null),
+            AgentActions.Research => new AgentResult("I found real options.", new AgentTripPlan(
+                [.. invocation.Plan!.Slots.Select(s => s with { Options = [.. s.Options, new AgentPlanOption("Researched pick", SourceUrl: "https://example.com/real")] })]), null, null),
             AgentActions.Questions => new AgentResult(null, null,
                 [.. invocation.Plan!.Slots.Select(s => new AgentQuestion(s.Key, "SingleChoice", $"OK with {s.Title}?", [.. s.Options.Select(o => o.Title)]))], null),
             AgentActions.Analyze => new AgentResult(null, null, null, new AgentAnalysis(

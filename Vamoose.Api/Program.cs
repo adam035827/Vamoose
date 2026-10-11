@@ -59,6 +59,8 @@ builder.Services.AddScoped<LifecycleService>();
 builder.Services.AddScoped<MagicLinkService>();
 builder.Services.AddSingleton<IEmailSender, DevEmailSender>();
 builder.Services.AddHostedService<ResponseWindowCloser>();
+builder.Services.AddSingleton<PlanResearchQueue>();
+builder.Services.AddHostedService<PlanResearcher>();
 
 if (!string.IsNullOrEmpty(builder.Configuration["Agents:RuntimeArn"]))
 {

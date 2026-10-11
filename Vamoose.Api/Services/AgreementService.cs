@@ -362,7 +362,7 @@ public class AgreementService(
         try
         {
             result = await agent.InvokeAsync(new AgentInvocation(
-                AgentRequests.NewId(), AgentActions.Nudge, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), Nudge: context), ct);
+                AgentRequests.NewId(), AgentActions.Nudge, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), Nudge: context, TripId: trip.Id), ct);
         }
         catch (AgentUnavailableException ex)
         {
@@ -415,7 +415,7 @@ public class AgreementService(
         try
         {
             result = await agent.InvokeAsync(new AgentInvocation(
-                AgentRequests.NewId(), AgentActions.Analyze, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), Responses: responses), ct);
+                AgentRequests.NewId(), AgentActions.Analyze, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), Responses: responses, TripId: trip.Id), ct);
         }
         catch (AgentUnavailableException ex)
         {
@@ -458,7 +458,7 @@ public class AgreementService(
         try
         {
             var result = await agent.InvokeAsync(new AgentInvocation(
-                AgentRequests.NewId(), AgentActions.Questions, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip)), ct);
+                AgentRequests.NewId(), AgentActions.Questions, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), TripId: trip.Id), ct);
 
             // Questions are checked against their fixed structure before use (requirements 4.1).
             var byKey = (result.Questions ?? [])

@@ -41,6 +41,9 @@ public partial class VamooseFactory : WebApplicationFactory<Program>
             // Tests close response windows explicitly instead of waiting for the timer.
             var closer = services.Single(d => d.ImplementationType == typeof(ResponseWindowCloser));
             services.Remove(closer);
+
+            // Tests run plan research explicitly; a background job would share the in-memory database connection.
+            services.Remove(services.Single(d => d.ImplementationType == typeof(PlanResearcher)));
         });
     }
 

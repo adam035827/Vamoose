@@ -12,7 +12,9 @@ public class PlanService(
     TripAccess access,
     IAgentClient agent,
     AgreementService agreement,
-    NotificationService notifications)
+    NotificationService notifications,
+    PlanResearchQueue research,
+    ILogger<PlanService> logger)
 {
     private const int HistoryLimit = 20;
 
@@ -56,7 +58,8 @@ public class PlanService(
             Plan: trip.Items.Count > 0 ? AgentMapper.ToPlan(trip) : null,
             History: [.. history.Select(m => new AgentHistoryMessage(m.Role == ChatRole.User ? "user" : "agent", m.Content))],
             CanEditPlan: canEdit,
-            Nudge: nudge), ct);
+            Nudge: nudge,
+            TripId: tripId), ct);
 
         var now = DateTimeOffset.UtcNow;
         var userMessage = new ChatMessage { Id = Guid.NewGuid(), TripId = tripId, UserId = ctx.Me.UserId, Role = ChatRole.User, Content = message, CreatedAt = now };
@@ -72,6 +75,7 @@ public class PlanService(
         db.ChatMessages.AddRange(userMessage, agentMessage);
 
         var planUpdated = false;
+        var firstPlan = trip.Items.Count == 0;
         if (canEdit && result.Plan is { Slots.Count: > 0 } plan)
         {
             var items = AgentMapper.ToItems(tripId, plan);
@@ -87,8 +91,62 @@ public class PlanService(
 
         await db.SaveChangesAsync(ct);
         await notifications.FlushAsync(ct);
+        if (planUpdated && firstPlan && trip.Status == TripStatus.Planning)
+        {
+            research.Enqueue(tripId, trip.PlanVersion);
+        }
         return new ChatResponseDto([ToDto(userMessage), ToDto(agentMessage)], planUpdated);
     }
+
+    // Second phase of a first plan (run by PlanResearcher): the agent adds real options and links to the quick draft.
+    // Skipped if the organizer changed the plan in the meantime, so their edits always win.
+    public async Task ApplyResearchAsync(Guid tripId, int planVersion, CancellationToken ct)
+    {
+        var ctx = await access.LoadForSystemAsync(tripId, ct);
+        var trip = ctx.Trip;
+        if (!IsCurrent(trip, planVersion) || trip.Items.Count == 0)
+        {
+            return;
+        }
+
+        AgentResult result;
+        try
+        {
+            result = await agent.InvokeAsync(new AgentInvocation(
+                AgentRequests.NewId(), AgentActions.Research, Trip: AgentMapper.ToContext(trip), Plan: AgentMapper.ToPlan(trip), TripId: tripId), ct);
+        }
+        catch (AgentUnavailableException ex)
+        {
+            logger.LogWarning(ex, "Plan research skipped for trip {TripId}", tripId);
+            return;
+        }
+
+        List<PlanItem> items = result.Plan is { } plan ? AgentMapper.ToItems(tripId, plan) : [];
+        await db.Entry(trip).ReloadAsync(ct);
+        if (items.Count == 0 || !IsCurrent(trip, planVersion))
+        {
+            return;
+        }
+
+        db.PlanItems.RemoveRange(trip.Items);
+        db.PlanItems.AddRange(items);
+        trip.Items = items;
+        trip.PlanVersion++;
+        db.ChatMessages.Add(new ChatMessage
+        {
+            Id = Guid.NewGuid(),
+            TripId = tripId,
+            UserId = trip.PrimaryUserId,
+            Role = ChatRole.Agent,
+            Content = string.IsNullOrWhiteSpace(result.Reply) ? "I added real options and links to the plan." : result.Reply,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        notifications.TripChanged(ctx.ActiveMemberIds, tripId);
+        await db.SaveChangesAsync(ct);
+        await notifications.FlushAsync(ct);
+    }
+
+    private static bool IsCurrent(Trip trip, int planVersion) => trip.Status == TripStatus.Planning && trip.PlanVersion == planVersion;
 
     public async Task SelectOptionAsync(Guid tripId, Guid itemId, Guid optionId, CancellationToken ct)
     {

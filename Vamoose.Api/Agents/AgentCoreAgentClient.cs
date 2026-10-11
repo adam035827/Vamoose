@@ -14,25 +14,39 @@ public class AgentCoreAgentClient(IAmazonBedrockAgentCore agentCore, IConfigurat
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
+    // Calls without a trip (the intro) share one session per API process.
+    private static readonly string SharedSessionId = $"vamoose-api-{Guid.NewGuid():N}";
+    private const int MaxAttempts = 3;
+
     public async Task<AgentResult> InvokeAsync(AgentInvocation invocation, CancellationToken ct)
     {
-        var request = new InvokeAgentRuntimeRequest
-        {
-            AgentRuntimeArn = config["Agents:RuntimeArn"],
-            RuntimeSessionId = $"vamoose-{Guid.NewGuid():N}",
-            ContentType = "application/json",
-            Payload = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(invocation, Json)),
-        };
+        var payload = JsonSerializer.SerializeToUtf8Bytes(invocation, Json);
+        var sessionId = SessionId(invocation);
 
         InvokeAgentRuntimeResponse response;
-        try
+        for (var attempt = 1; ; attempt++)
         {
-            response = await agentCore.InvokeAgentRuntimeAsync(request, ct);
-        }
-        catch (Exception ex) when (ex is AmazonServiceException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
-        {
-            logger.LogError(ex, "AgentCore call failed for {Action}", invocation.Action);
-            throw new AgentUnavailableException("The Vamoose agent is not reachable right now. Please try again.");
+            try
+            {
+                response = await agentCore.InvokeAgentRuntimeAsync(new InvokeAgentRuntimeRequest
+                {
+                    AgentRuntimeArn = config["Agents:RuntimeArn"],
+                    RuntimeSessionId = sessionId,
+                    ContentType = "application/json",
+                    Payload = new MemoryStream(payload),
+                }, ct);
+                break;
+            }
+            catch (RetryableConflictException) when (attempt < MaxAttempts)
+            {
+                // Brief 409 while AgentCore starts the session's microVM.
+                await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), ct);
+            }
+            catch (Exception ex) when (ex is AmazonServiceException or HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
+            {
+                logger.LogError(ex, "AgentCore call failed for {Action}", invocation.Action);
+                throw new AgentUnavailableException("The Vamoose agent is not reachable right now. Please try again.");
+            }
         }
 
         using (response)
@@ -58,4 +72,13 @@ public class AgentCoreAgentClient(IAmazonBedrockAgentCore agentCore, IConfigurat
 
         throw new AgentUnavailableException("The Vamoose agent did not return a result. Please try again.");
     }
+
+    // A new session id per call meant a cold microVM every time; one per trip stays warm between calls.
+    // Background research gets its own session so it doesn't compete with the organizer's chat.
+    public static string SessionId(AgentInvocation invocation) => invocation.TripId switch
+    {
+        { } tripId when invocation.Action == AgentActions.Research => $"vamoose-research-{tripId:N}",
+        { } tripId => $"vamoose-trip-{tripId:N}",
+        null => SharedSessionId,
+    };
 }

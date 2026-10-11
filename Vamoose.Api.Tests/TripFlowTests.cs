@@ -192,6 +192,40 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
         }
     }
 
+    [Fact]
+    public async Task First_plan_gets_real_options_in_the_background_unless_the_plan_changed()
+    {
+        var (organizer, tripId) = await PlannedTripAsync();
+        var version = 0;
+        await factory.RunAsync(async sp => version = (await sp.GetRequiredService<VamooseDbContext>().Trips.SingleAsync(t => t.Id == tripId)).PlanVersion);
+
+        await factory.RunAsync(sp => sp.GetRequiredService<PlanService>().ApplyResearchAsync(tripId, version, CancellationToken.None));
+
+        var trip = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+        Assert.All(trip!.Items, i => Assert.Contains(i.Options, o => o.Title == "Researched pick" && o.SourceUrl == "https://example.com/real"));
+        var chat = await organizer.GetFromJsonAsync<List<ChatMessageDto>>($"/api/trips/{tripId}/chat");
+        Assert.Equal("I found real options.", chat!.Last().Content);
+
+        // The same job again is stale (the plan has moved on), so the agent isn't even called.
+        var researchCalls = factory.Agent.Calls.Count(c => c.Action == AgentActions.Research);
+        await factory.RunAsync(sp => sp.GetRequiredService<PlanService>().ApplyResearchAsync(tripId, version, CancellationToken.None));
+        Assert.Equal(researchCalls, factory.Agent.Calls.Count(c => c.Action == AgentActions.Research));
+    }
+
+    [Fact]
+    public void Each_trip_reuses_its_agent_session_and_the_trip_id_is_never_sent_to_the_agent()
+    {
+        var tripId = Guid.NewGuid();
+        var chat = new AgentInvocation("req-1", AgentActions.Chat, Message: "hi", TripId: tripId);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(chat, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
+        Assert.DoesNotContain("tripId", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(AgentCoreAgentClient.SessionId(chat), AgentCoreAgentClient.SessionId(chat with { RequestId = "req-2" }));
+        Assert.NotEqual(AgentCoreAgentClient.SessionId(chat), AgentCoreAgentClient.SessionId(chat with { Action = AgentActions.Research }));
+        Assert.True(AgentCoreAgentClient.SessionId(chat).Length >= 33);
+    }
+
     private async Task<(HttpClient Organizer, Guid TripId)> PlannedTripAsync(params string[] travelers)
     {
         var (organizer, tripId) = await factory.StartTripAsync(VamooseFactory.NewEmail("org"), travelers);

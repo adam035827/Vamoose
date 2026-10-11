@@ -177,6 +177,11 @@ def mock_chat(invocation: AgentInvocation) -> ChatReply:
     )
 
 
+def mock_research(invocation: AgentInvocation) -> ChatReply:
+    # The mock plan already has alternatives and links, so research has nothing to add.
+    return ChatReply(reply="(Mock) The plan's options are already up to date.")
+
+
 def mock_questions(invocation: AgentInvocation) -> QuestionSet:
     slots = invocation.plan.slots if invocation.plan else []
     return QuestionSet(

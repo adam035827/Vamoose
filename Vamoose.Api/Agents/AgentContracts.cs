@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Vamoose.Api.Agents;
 
 // Mirrors Vamoose.Agents/vamoose_agents/contracts.py. Serialized as camelCase.
@@ -5,6 +7,7 @@ namespace Vamoose.Api.Agents;
 public static class AgentActions
 {
     public const string Chat = "Chat";
+    public const string Research = "Research";
     public const string Questions = "Questions";
     public const string Analyze = "Analyze";
     public const string Nudge = "Nudge";
@@ -77,7 +80,9 @@ public record AgentInvocation(
     List<AgentHistoryMessage>? History = null,
     bool? CanEditPlan = null,
     AgentNudgeContext? Nudge = null,
-    AgentResponses? Responses = null);
+    AgentResponses? Responses = null,
+    // Routing only (one AgentCore session per trip); never sent to the agent.
+    [property: JsonIgnore] Guid? TripId = null);
 
 public record AgentQuestion(string SlotKey, string Type, string Prompt, List<string> Options);
 
