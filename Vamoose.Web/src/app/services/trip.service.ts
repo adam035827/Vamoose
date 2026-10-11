@@ -36,7 +36,7 @@ export class TripService {
     return firstValueFrom(this._http.get<OutboxEmail[]>('/api/dev/outbox'));
   }
 
-  // Organizer only; the API returns 404 unless App:ExposeMagicLinks is on (development).
+  // Organizer only; the API returns 404 when App:ExposeMagicLinks is off.
   magicLinks(id: string): Promise<TripMagicLink[]> {
     return firstValueFrom(this._http.get<TripMagicLink[]>(`/api/trips/${id}/magic-links`));
   }

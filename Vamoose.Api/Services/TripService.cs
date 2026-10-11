@@ -138,7 +138,7 @@ public class TripService(
         await notifications.FlushAsync(ct);
     }
 
-    // Each active member's magic link, for the organizer's browser console in development.
+    // Each active member's magic link, for the organizer's browser console (no email provider yet).
     public async Task<IReadOnlyList<MagicLinkDto>> MagicLinksAsync(Guid tripId, CancellationToken ct)
     {
         if (!magicLinks.ExposeLinks)

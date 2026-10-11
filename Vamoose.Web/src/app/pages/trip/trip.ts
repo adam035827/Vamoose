@@ -277,7 +277,7 @@ export class TripPage {
     }
   }
 
-  // No email provider yet: in development the organizer's browser console shows everyone's magic link.
+  // No email provider yet: the organizer's browser console shows everyone's magic link.
   private async logMagicLinks(trip: TripDetail): Promise<void> {
     if (trip.myRole !== 'Primary') {
       return;
@@ -291,7 +291,7 @@ export class TripPage {
       console.info(`[Vamoose] Magic links for "${trip.name}":`);
       links.forEach((l) => console.info(`[Vamoose] ${l.email} (${l.role}): ${l.link}`));
     } catch {
-      // Not exposed outside development.
+      // Not exposed when App:ExposeMagicLinks is off.
     }
   }
 
