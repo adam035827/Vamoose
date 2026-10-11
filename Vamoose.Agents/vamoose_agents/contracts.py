@@ -201,6 +201,50 @@ class AgentMessage(Contract):
     message: str = Field(min_length=1, max_length=1500)
 
 
+# Internal structured outputs: produced by models inside the agent service, never sent over the wire.
+
+
+class SlotDraft(Contract):
+    """A slot as the planner writes it: options come from research refs and/or are written out."""
+
+    category: PlanCategory
+    title: str = Field(min_length=1, max_length=120)
+    day: int | None = Field(default=None, ge=1, le=21)
+    date: dt.date | None = None
+    selected_index: int = Field(default=0, ge=0, description="Index into the combined options (refs first).")
+    option_refs: list[Annotated[str, StringConstraints(max_length=20)]] = Field(
+        default_factory=list, max_length=4, description="`ref` values of options returned by research."
+    )
+    options: list[PlanOption] = Field(
+        default_factory=list, max_length=4, description="Only for options that did not come from research."
+    )
+
+
+class PlanChange(Contract):
+    op: Literal["upsert", "remove", "select"] = Field(
+        description="upsert: add or replace a whole slot. remove: delete a slot. select: change selected_index only."
+    )
+    slot_key: Id
+    slot: SlotDraft | None = Field(default=None, description="upsert only: the complete slot.")
+    selected_index: int | None = Field(default=None, ge=0, description="select only.")
+
+
+class PlannerReply(Contract):
+    """What the planner model returns; the agent applies `changes` to the current plan."""
+
+    reply: str = Field(min_length=1, max_length=4000, description="Conversational answer shown in the chat.")
+    changes: list[PlanChange] = Field(
+        default_factory=list, max_length=40, description="Only slots that change. Empty when just asking or answering."
+    )
+
+
+class ResearchResult(Contract):
+    """What a research assistant returns for one slot."""
+
+    options: list[PlanOption] = Field(min_length=1, max_length=4)
+    note: str | None = Field(default=None, max_length=300, description="Caveats, e.g. prices are estimates.")
+
+
 class AgentInvocation(Contract):
     request_id: Id
     action: AgentAction

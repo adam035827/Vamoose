@@ -245,7 +245,7 @@ The embeddable zip is not suitable (no `venv`, and its `._pth` file ignores virt
 ### 2.4 Project config (already in the repo)
 
 - `agentcore/` is the CLI's config and CDK project, generated with `agentcore create --no-agent` and copied to the repo root.
-- `agentcore/agentcore.json` has one runtime, `VamooseAgents`: `CodeZip`, entrypoint `main.py`, `codeLocation` `Vamoose.Agents/`, `PYTHON_3_13`, with env vars `AWS_REGION=us-east-2` and `VAMOOSE_MOCK_AGENTS=1`.
+- `agentcore/agentcore.json` has one runtime, `VamooseAgents`: `CodeZip`, entrypoint `main.py`, `codeLocation` `Vamoose.Agents/`, `PYTHON_3_13`, with env vars `AWS_REGION=us-east-2`, `VAMOOSE_MOCK_AGENTS=0` (real Claude) and `VAMOOSE_TAVILY_PARAMETER=/vamoose/tavily-api-key` (Tavily web search key, a SecureString in Parameter Store). The runtime role has the inline policy `VamooseReadParameters` (`ssm:GetParameter` on `parameter/vamoose/*`), added by hand in IAM.
 - `agentcore/aws-targets.json` targets account `965472235570`, region `us-east-2`.
 - `Vamoose.Agents/main.py` is a small launcher. `app.py` uses relative imports, so it cannot run as a plain script.
 - Run `npm install` once in `agentcore/cdk` (the scaffold skipped it).
@@ -301,7 +301,7 @@ Get-Content $env:TEMP\out.txt
    ```
 
    Also add the `/hubs/` block from section 1.7 to Nginx, then redeploy (section 1.8) and check `journalctl -u vamoose-api -n 50`.
-5. **Mock mode off:** remove or set `VAMOOSE_MOCK_AGENTS` to `0` in `agentcore.json` and redeploy once real Bedrock calls should be made.
+5. **Mock mode off:** done in `agentcore.json`; takes effect on the next `agentcore deploy --yes`. Check the runtime logs for the startup line `Vamoose agent service on AgentCore - Bedrock planner=... search=Tavily MCP (Parameter Store ...)` with no `WARNING` after it.
 6. **HTTPS and a stable address:** Elastic IP, hostname, Certbot.
 7. **Security cleanup:** use an IAM user instead of root, restrict SSH to your own IP.
 

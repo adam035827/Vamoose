@@ -1,10 +1,11 @@
 import datetime as dt
 
 from strands import Agent
-from strands.models import BedrockModel, Model
+from strands.models import Model
 
 from .config import Settings
 from .contracts import DraftItinerary
+from .models import build_models
 
 SYSTEM_PROMPT = """You are Vamoose's trip drafter. An organizer describes a rough group-trip idea; you turn it
 into a realistic day-by-day draft itinerary they can edit.
@@ -28,8 +29,7 @@ DRAFT_LIMITS = {"turns": 4, "output_tokens": 16000}
 
 
 def build_planner_model(settings: Settings) -> Model:
-    config = {"model_id": settings.planner_model_id} if settings.planner_model_id else {}
-    return BedrockModel(region_name=settings.aws_region, max_tokens=16000, temperature=0.4, **config)
+    return build_models(settings).planner
 
 
 def build_drafter(model: Model) -> Agent:

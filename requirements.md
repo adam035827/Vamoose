@@ -183,8 +183,8 @@ Trip lifecycle: **Planning** (primary user chats with the agent) → **Finalized
 | Dev connection string | Kept in user-secrets or local `appsettings.Development.json` | Never committed to git. Each developer uses their own SQL login. |
 | Dev network access | RDS security group allows port 1433 from developer IPs | VPN or bastion host preferred over public access. **TBD** |
 | AI agents | Strands Agents SDK (Amazon, open source), **Python 3.13** | Implemented in `Vamoose.Agents` (see 5.1). Strands is not available for .NET, so it runs as a separate agent service that `Vamoose.Api` calls over HTTP. Python 3.15 is not supported yet (missing dependency wheels). |
-| AI model | Anthropic Claude on Amazon Bedrock, region `us-east-2` | Default model is the Strands SDK default; override with `VAMOOSE_PLANNER_MODEL_ID`. Each developer uses their own IAM user with only Bedrock invoke permissions. |
-| Agent hosting | Amazon Bedrock AgentCore Runtime | The service already follows the AgentCore contract. Deployed with the AgentCore CLI (`@aws/agentcore`). The default `CodeZip` build packages the code to S3 and needs no Docker or container image; the `Container` build type is optional. |
+| AI model | Anthropic Claude on Amazon Bedrock, region `us-east-2` | Two pinned roles: **planner** (Claude Sonnet 4.5) builds and edits plans; **fast** (Claude Haiku 4.5) handles the trip intro, answers, questions, analysis summaries, nudges and parallel research assistants. Override with `VAMOOSE_PLANNER_MODEL_ID` / `VAMOOSE_FAST_MODEL_ID`. Each developer uses their own IAM user with only Bedrock invoke permissions. |
+| Agent hosting | Amazon Bedrock AgentCore Runtime | The service already follows the AgentCore contract. Deployed with the AgentCore CLI (`@aws/agentcore`). The default `CodeZip` build packages the code to S3 and needs no Docker or container image; the `Container` build type is optional. The Tavily search key is read from Parameter Store (`/vamoose/tavily-api-key`) by the runtime's execution role. |
 | Hosting | AWS | Frontend and API run on a single Ubuntu EC2 instance: Nginx serves the Angular build and proxies `/api/*` to the .NET API on `127.0.0.1:5000`. The database is RDS and the agent service is on AgentCore (see above). Other services **TBD** |
 | Dev platforms | Windows and macOS | Docker not used. The agent service runs locally in a Python virtual environment. |
 
@@ -246,7 +246,10 @@ Unimplemented actions return a single `Error` event ("not available yet"), so th
 | `VAMOOSE_MOCK_AGENTS` | `1` returns canned, repeatable output for every action without calling AWS |
 | `Vamoose.Agents/.mock` | If this file exists, the running service switches to mock mode immediately (no restart), for live demos (6.2) |
 | `AWS_REGION` | Defaults to `us-east-2` |
-| `VAMOOSE_PLANNER_MODEL_ID` | Optional Bedrock model override |
+| `VAMOOSE_PLANNER_MODEL_ID` | Optional override of the planner model (default Claude Sonnet 4.5) |
+| `VAMOOSE_FAST_MODEL_ID` | Optional override of the fast model (default Claude Haiku 4.5) |
+| `TAVILY_API_KEY` | Web search through Tavily's MCP server; without it the agent falls back to DuckDuckGo. Never committed. |
+| `VAMOOSE_USE_OS_TRUSTSTORE` | `1` makes Tavily trust the OS certificate store (networks with TLS inspection) |
 | `AWS_PROFILE` | The developer's AWS credentials profile |
 | `AWS_CA_BUNDLE` | Only on networks with TLS inspection (for example Zscaler) |
 
