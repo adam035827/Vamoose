@@ -69,10 +69,10 @@
               <p class="alert" role="alert">{{ error() }}</p>
             }
             <div class="who__actions">
-              <button type="button" class="btn btn--ghost btn--small" (click)="startOver()" [disabled]="step() === 'starting'">Change destination</button>
               <button type="submit" class="btn btn--primary who__go" [disabled]="!canStart()">
                 {{ step() === 'starting' ? 'Creating your trip…' : 'Go' }}
               </button>
+              <button type="button" class="btn btn--small who__back" (click)="startOver()" [disabled]="step() === 'starting'">Change destination</button>
             </div>
           </form>
         </div>

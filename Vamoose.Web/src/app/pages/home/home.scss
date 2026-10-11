@@ -177,10 +177,30 @@
     }
   }
 
+  &__back {
+    border-color: transparent;
+    background: transparent;
+    color: var(--color-text-muted-on-dark);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+
+    &:hover:not(:disabled) {
+      background: transparent;
+      color: var(--color-on-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 2px;
+    }
+  }
+
   &__actions {
     display: flex;
+    flex-direction: row-reverse;
     flex-wrap: wrap;
     justify-content: space-between;
+    align-items: center;
     gap: var(--space-2);
   }
 }
