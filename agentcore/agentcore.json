@@ -16,6 +16,7 @@
       "runtimeVersion": "PYTHON_3_13",
       "networkMode": "PUBLIC",
       "protocol": "HTTP",
+      "lifecycleConfiguration": { "idleRuntimeSessionTimeout": 3600, "maxLifetime": 28800 },
       "envVars": [
         { "name": "AWS_REGION", "value": "us-east-2" },
         { "name": "VAMOOSE_MOCK_AGENTS", "value": "0" },

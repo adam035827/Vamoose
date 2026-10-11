@@ -61,6 +61,8 @@ builder.Services.AddSingleton<IEmailSender, DevEmailSender>();
 builder.Services.AddHostedService<ResponseWindowCloser>();
 builder.Services.AddSingleton<PlanResearchQueue>();
 builder.Services.AddHostedService<PlanResearcher>();
+builder.Services.AddSingleton<TripEvaluationQueue>();
+builder.Services.AddHostedService<TripEvaluator>();
 
 if (!string.IsNullOrEmpty(builder.Configuration["Agents:RuntimeArn"]))
 {

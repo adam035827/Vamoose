@@ -22,6 +22,7 @@ public class AgentCoreAgentClient(IAmazonBedrockAgentCore agentCore, IConfigurat
     {
         var payload = JsonSerializer.SerializeToUtf8Bytes(invocation, Json);
         var sessionId = SessionId(invocation);
+        var started = System.Diagnostics.Stopwatch.StartNew();
 
         InvokeAgentRuntimeResponse response;
         for (var attempt = 1; ; attempt++)
@@ -63,6 +64,7 @@ public class AgentCoreAgentClient(IAmazonBedrockAgentCore agentCore, IConfigurat
                 switch (evt?.Type)
                 {
                     case "Result":
+                        logger.LogInformation("AgentCore {Action} took {Seconds:F1}s (session {Session})", invocation.Action, started.Elapsed.TotalSeconds, sessionId);
                         return new AgentResult(evt.Reply, evt.Plan, evt.Questions, evt.Analysis, evt.Destination, evt.TripName);
                     case "Error":
                         throw new AgentUnavailableException(evt.Message ?? "The Vamoose agent hit a problem. Please try again.");

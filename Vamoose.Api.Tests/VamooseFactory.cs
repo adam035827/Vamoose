@@ -44,6 +44,7 @@ public partial class VamooseFactory : WebApplicationFactory<Program>
 
             // Tests run plan research explicitly; a background job would share the in-memory database connection.
             services.Remove(services.Single(d => d.ImplementationType == typeof(PlanResearcher)));
+            services.Remove(services.Single(d => d.ImplementationType == typeof(TripEvaluator)));
         });
     }
 

@@ -147,6 +147,9 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
 
         var benClient = await factory.OpenMagicLinkAsync(ben);
         (await benClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(wantsHostel))).EnsureSuccessStatusCode();
+        var answered = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
+        Assert.False(answered!.Decided);
+        await SettleAsync(tripId);
 
         var decided = await organizer.GetFromJsonAsync<TripDetailDto>($"/api/trips/{tripId}");
         Assert.True(decided!.Decided);
@@ -178,6 +181,7 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
             {
                 var wantsHostel = Current(trip).Select(c => c.ItemId == lodging.Id ? c with { OptionId = hostel } : c).ToList();
                 (await anaClient.PostAsJsonAsync($"/api/trips/{tripId}/responses", new RespondRequest(wantsHostel))).EnsureSuccessStatusCode();
+                await SettleAsync(tripId);
             }
             finally
             {
@@ -304,6 +308,10 @@ public class TripFlowTests(VamooseFactory factory) : IClassFixture<VamooseFactor
 
     private static List<ChoiceDto> Current(TripDetailDto trip) =>
         [.. trip.Items.Select(i => new ChoiceDto(i.Id, i.SelectedOptionId!.Value))];
+
+    // What TripEvaluator does in the background after an answer.
+    private Task SettleAsync(Guid tripId) =>
+        factory.RunAsync(sp => sp.GetRequiredService<AgreementService>().EvaluateTripAsync(tripId, CancellationToken.None));
 
     private Task ExpireWindowAsync(Guid tripId) => factory.RunAsync(async sp =>
     {

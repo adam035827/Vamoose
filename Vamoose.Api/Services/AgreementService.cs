@@ -16,6 +16,7 @@ public class AgreementService(
     IAgentClient agent,
     MagicLinkService magicLinks,
     NotificationService notifications,
+    TripEvaluationQueue evaluations,
     ILogger<AgreementService> logger)
 {
     public static readonly TimeSpan ResponseWindow = TimeSpan.FromHours(24);
@@ -144,9 +145,8 @@ public class AgreementService(
         await UpsertApprovalAsync(trip, me, keepsPlan, ct);
         await db.SaveChangesAsync(ct);
 
-        await EvaluateAsync(ctx, ct);
-        await db.SaveChangesAsync(ct);
-        await notifications.FlushAsync(ct);
+        // Settling the vote can call the agent, so the traveler doesn't wait for it; pages refresh when it lands.
+        evaluations.Enqueue(tripId);
     }
 
     // Settles response windows that ran out with whoever answered in time.
@@ -160,11 +160,17 @@ public class AgreementService(
 
         foreach (var tripId in due)
         {
-            var ctx = await access.LoadForSystemAsync(tripId, ct);
-            await EvaluateAsync(ctx, ct);
-            await db.SaveChangesAsync(ct);
-            await notifications.FlushAsync(ct);
+            await EvaluateTripAsync(tripId, ct);
         }
+    }
+
+    // Run by TripEvaluator after an answer, and by the window closer.
+    public async Task EvaluateTripAsync(Guid tripId, CancellationToken ct)
+    {
+        var ctx = await access.LoadForSystemAsync(tripId, ct);
+        await EvaluateAsync(ctx, ct);
+        await db.SaveChangesAsync(ct);
+        await notifications.FlushAsync(ct);
     }
 
     // Waits until every active traveler has answered (or the window closed), then applies the group's choices.
@@ -289,7 +295,7 @@ public class AgreementService(
             changed > 0
                 ? $"{who} on \"{trip.Name}\". The agent changed {changed} item(s) to match what most people chose."
                 : $"{who} on \"{trip.Name}\". The group went with the current plan.");
-        notifications.TripChanged(ctx.OtherActiveMemberIds, trip.Id);
+        notifications.TripChanged(ctx.ActiveMemberIds.Where(id => id != trip.PrimaryUserId), trip.Id);
     }
 
     // Options with the most votes, in plan order.
