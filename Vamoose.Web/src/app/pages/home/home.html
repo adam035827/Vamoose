@@ -45,7 +45,7 @@
         </div>
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-          <form class="who card" (ngSubmit)="start()">
+          <form class="who card" [class.loading-border]="step() === 'starting'" (ngSubmit)="start()">
             <label class="field">
               <span class="field__label">Who are you?</span>
               <div class="input-shell">

@@ -32,7 +32,7 @@
       @if (plan(); as p) {
         <div class="msg">
           <img class="msg__avatar" src="/oo.svg" alt="" aria-hidden="true" />
-          <div class="msg__bubble msg__bubble--card">
+          <div class="msg__bubble msg__bubble--card" [class.loading-border]="researching()" [attr.aria-busy]="researching()">
             <p class="plan__intro">Here's the plan:</p>
             @for (day of p.days; track day.label) {
               <p class="plan__day">{{ day.label }}</p>
