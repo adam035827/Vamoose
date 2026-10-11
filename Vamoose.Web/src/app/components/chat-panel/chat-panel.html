@@ -27,7 +27,7 @@
         <div class="msg__bubble md" [innerHTML]="text | markdown"></div>
       </div>
       <div class="msg">
-        <p class="msg__bubble msg__bubble--typing" aria-label="The agent is thinking">
+        <p class="msg__bubble msg__bubble--typing loading-border" aria-label="The agent is thinking">
           <span></span><span></span><span></span>
         </p>
         <span class="msg__time">{{ canEdit() ? 'Searching and planning…' : 'Thinking…' }}</span>
